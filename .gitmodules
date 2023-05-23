@@ -1,0 +1,3 @@
+[submodule "Plugins/USSimplestLANMatcher"]
+	path = Plugins/USSimplestLANMatcher
+	url = https://github.com/jellypower/USLanMatcher.git
