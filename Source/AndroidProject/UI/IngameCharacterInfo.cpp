@@ -3,7 +3,7 @@
 
 #include "IngameCharacterInfo.h"
 
-#include "AndroidProject/AndroidProjectCharacter.h"
+#include "Characters/AndroidProjectCharacter.h"
 
 void UIngameCharacterInfo::NativeConstruct()
 {

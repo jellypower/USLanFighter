@@ -15,6 +15,9 @@ public:
 	AAndroidProjectGameMode();
 
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+private:
+	int32 PlayerCount = 0;
 };
 
 

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "../AndroidprojectCharacter.h"
+#include "Characters/AndroidprojectCharacter.h"
 #include "Blueprint/UserWidget.h"
 #include "IngameCharacterInfo.generated.h"
 

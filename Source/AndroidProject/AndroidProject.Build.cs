@@ -10,10 +10,11 @@ public class AndroidProject : ModuleRules
 
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore",
 	        "HeadMountedDisplay", "NavigationSystem", "AIModule", "Niagara", "EnhancedInput", "UMG"
-	        , "USSimplestLANMatcher"
+	        , "USSimplestLANMatcher",
         });
         
         PublicIncludePaths.AddRange(
-	        new string[] { "USSimplestLANMatcher", "AndroidProject"});
+	        new string[] { "../Plugins/USSimplestLanMatcher", "AndroidProject"});
+        
     }
 }

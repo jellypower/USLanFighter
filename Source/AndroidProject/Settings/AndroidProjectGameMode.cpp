@@ -1,9 +1,10 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidProjectGameMode.h"
-#include "AndroidProjectPlayerController.h"
-#include "AndroidProjectCharacter.h"
+#include "Characters/AndroidProjectPlayerController.h"
+#include "Characters/AndroidProjectCharacter.h"
 #include "UObject/ConstructorHelpers.h"
+
 
 AAndroidProjectGameMode::AAndroidProjectGameMode()
 {
@@ -29,7 +30,13 @@ AAndroidProjectGameMode::AAndroidProjectGameMode()
 void AAndroidProjectGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
+	
+	
+	Cast<AAndroidProjectCharacter>(NewPlayer->GetCharacter())
+		->SetCharacterName(FString::Printf(TEXT("Character%d"), PlayerCount));
 
+	PlayerCount++;
+	
 	UE_LOG(LogTemp, Log, TEXT("%s logged in"), *NewPlayer->GetName());
 
 	
