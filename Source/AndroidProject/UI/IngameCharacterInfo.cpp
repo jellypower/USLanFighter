@@ -2,16 +2,32 @@
 
 
 #include "IngameCharacterInfo.h"
+#include "Characters/USFightingCharacter.h"
 
-#include "Characters/AndroidProjectCharacter.h"
+
 
 void UIngameCharacterInfo::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	checkf(player != nullptr, TEXT("Character info widget muset to be SetPlayer"));
+	
 	playerName = player->GetCharacterName();
-	UE_LOG(LogTemp, Log, TEXT("Native Construct"));
+}
 
+float UIngameCharacterInfo::GetCurrentHP() const
+{
+	return player->GetCurHP();
+}
+
+float UIngameCharacterInfo::GetMaxHP() const
+{
+	return player->GetMaxHP(); 
+}
+
+void UIngameCharacterInfo::SetPlayer(AUSFightingCharacter* InPlayer)
+{
+	player = InPlayer; 
 }
 
 

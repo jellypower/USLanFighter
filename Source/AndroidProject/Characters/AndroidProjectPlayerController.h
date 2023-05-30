@@ -61,7 +61,7 @@ private:
 
 
 
-#pragma region Input from client to server
+#pragma region Input Setting Functions
 protected:
 	
 	void OnInputMove(const FInputActionValue& val);
@@ -79,7 +79,7 @@ protected:
 private:
 	/** GetCharcter()'s cache */
 	UPROPERTY()
-	TObjectPtr<class AAndroidProjectCharacter> ControllingCharacter;
+	TObjectPtr<class AUSFightingCharacter> ControllingCharacter;
 
 
 

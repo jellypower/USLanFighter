@@ -9,7 +9,7 @@
 #include "GameFramework/Pawn.h"
 #include "InputDataAsset/InputActionDataAsset.h"
 
-#include "AndroidProjectCharacter.h"
+#include "USFightingCharacter.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "UI/USTouchInterfaceButton.h"
 
@@ -71,13 +71,13 @@ void AAndroidProjectPlayerController::BeginPlay()
 void AAndroidProjectPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	ControllingCharacter = CastChecked<AAndroidProjectCharacter>(InPawn);
+	ControllingCharacter = CastChecked<AUSFightingCharacter>(InPawn);
 }
 
 void AAndroidProjectPlayerController::OnRep_Pawn()
 {
 	Super::OnRep_Pawn();
-	ControllingCharacter = CastChecked<AAndroidProjectCharacter>(GetCharacter());
+	ControllingCharacter = Cast<AUSFightingCharacter>(GetCharacter());
 }
 
 
@@ -91,10 +91,7 @@ void AAndroidProjectPlayerController::SetupInputComponent()
 		UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
 		check(EnhancedInputComponent != nullptr);
 
-		// Setup mouse input events
-		EnhancedInputComponent->BindAction(MyInputAction->IAMove, ETriggerEvent::Triggered, this
-			, &AAndroidProjectPlayerController::OnInputMove);
-
+		// Setup mouse input event
 		EnhancedInputComponent->BindAction(MyInputAction->IAJump, ETriggerEvent::Started, this
 			, &AAndroidProjectPlayerController::OnInputJump);
 		
@@ -109,6 +106,9 @@ void AAndroidProjectPlayerController::SetupInputComponent()
 
 		EnhancedInputComponent->BindAction(MyInputAction->IAKick, ETriggerEvent::Started, this
 			, &AAndroidProjectPlayerController::OnInputKick);
+
+		EnhancedInputComponent->BindAction(MyInputAction->IAMove, ETriggerEvent::Triggered, this
+	, &AAndroidProjectPlayerController::OnInputMove);
 	}
 }
 
@@ -116,17 +116,16 @@ void AAndroidProjectPlayerController::OnInputMove(const FInputActionValue& val)
 {
 	FVector2D dir2D = val.Get<FVector2D>();
 	dir2D.Normalize();
-	float NormalVecY = dir2D.Y;
-	float NormalVecX = dir2D.X;
 	
-	ControllingCharacter->OrderToMove(FVector(dir2D.X, dir2D.Y, 0));
+	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Move,
+		FVector_NetQuantizeNormal(dir2D.Y, dir2D.X, 0)));
 	
 }
 
 void AAndroidProjectPlayerController::OnInputJump(const FInputActionValue& val)
 {
-	UE_LOG(LogTemp, Log, TEXT("Jump!"));
-	ControllingCharacter->OrderToJump();
+	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Jump,
+		FVector_NetQuantizeNormal::Zero()));
 }
 
 void AAndroidProjectPlayerController::OnInputSkill1(const FInputActionValue& val)

@@ -2,7 +2,7 @@
 
 #include "AndroidProjectGameMode.h"
 #include "Characters/AndroidProjectPlayerController.h"
-#include "Characters/AndroidProjectCharacter.h"
+#include "Characters/USFightingCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
 
@@ -12,14 +12,14 @@ AAndroidProjectGameMode::AAndroidProjectGameMode()
 	PlayerControllerClass = AAndroidProjectPlayerController::StaticClass();
 
 	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/TopDown/Blueprints/BP_TopDownCharacter"));
+	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/TopDown/Blueprints/BP_USFightCharacter.BP_USFightCharacter_C"));
 	if (PlayerPawnBPClass.Class != nullptr)
-	{
+	{	
 		DefaultPawnClass = PlayerPawnBPClass.Class;
 	}
 
 	// set default controller to our Blueprinted controller
-	static ConstructorHelpers::FClassFinder<APlayerController> PlayerControllerBPClass(TEXT("/Game/TopDown/Blueprints/BP_TopDownPlayerController"));
+	static ConstructorHelpers::FClassFinder<APlayerController> PlayerControllerBPClass(TEXT("/Game/TopDown/Blueprints/BP_TopDownPlayerController.BP_TopDownPlayerController_C"));
 	if(PlayerControllerBPClass.Class != NULL)
 	{
 		PlayerControllerClass = PlayerControllerBPClass.Class;
@@ -30,9 +30,12 @@ AAndroidProjectGameMode::AAndroidProjectGameMode()
 void AAndroidProjectGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
+
+	check(NewPlayer != nullptr);
+
+	check(Cast<AUSFightingCharacter>(NewPlayer->GetCharacter()) != nullptr);
 	
-	
-	Cast<AAndroidProjectCharacter>(NewPlayer->GetCharacter())
+	Cast<AUSFightingCharacter>(NewPlayer->GetCharacter())
 		->SetCharacterName(FString::Printf(TEXT("Character%d"), PlayerCount));
 
 	PlayerCount++;
