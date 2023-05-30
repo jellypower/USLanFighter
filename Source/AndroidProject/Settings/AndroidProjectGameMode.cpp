@@ -12,14 +12,16 @@ AAndroidProjectGameMode::AAndroidProjectGameMode()
 	PlayerControllerClass = AAndroidProjectPlayerController::StaticClass();
 
 	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/TopDown/Blueprints/BP_USFightCharacter.BP_USFightCharacter_C"));
+	static ConstructorHelpers::FClassFinder<APawn>
+		PlayerPawnBPClass(TEXT("/Game/BlueprintClasses/BP_USFightCharacter.BP_USFightCharacter_C"));
 	if (PlayerPawnBPClass.Class != nullptr)
 	{	
 		DefaultPawnClass = PlayerPawnBPClass.Class;
 	}
 
 	// set default controller to our Blueprinted controller
-	static ConstructorHelpers::FClassFinder<APlayerController> PlayerControllerBPClass(TEXT("/Game/TopDown/Blueprints/BP_TopDownPlayerController.BP_TopDownPlayerController_C"));
+	static ConstructorHelpers::FClassFinder<APlayerController>
+		PlayerControllerBPClass(TEXT("/Game/BlueprintClasses/BP_AndroidProjectPlayerController.BP_AndroidProjectPlayerController_C"));
 	if(PlayerControllerBPClass.Class != NULL)
 	{
 		PlayerControllerClass = PlayerControllerBPClass.Class;
