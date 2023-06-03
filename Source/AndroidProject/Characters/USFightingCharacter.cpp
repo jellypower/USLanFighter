@@ -2,8 +2,10 @@
 
 #include "USFightingCharacter.h"
 
+#include "USCharacterAnim.h"
 #include "Algo/IndexOf.h"
 #include "Camera/CameraComponent.h"
+#include "CharacterShare/EditorNames.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Engine/World.h"
@@ -15,6 +17,7 @@
 #include "Net/UnrealNetwork.h"
 
 #include "UI/IngameCharacterInfo.h"
+#include "Weapons/USWeaponBase.h"
 
 
 AUSFightingCharacter::AUSFightingCharacter()
@@ -61,23 +64,31 @@ AUSFightingCharacter::AUSFightingCharacter()
 	//NameTagWidget->SetIsReplicated(true);
 	static ConstructorHelpers::FClassFinder<UUserWidget>
 		NAME_TAG_ASSET(TEXT("/Game/UI/WB_InGamePlayerInfo.WB_InGamePlayerInfo_C"));
-
-
+	
 	if (NAME_TAG_ASSET.Succeeded())
 	{
 		NameTagWidget->SetWidgetClass(NAME_TAG_ASSET.Class);
 		NameTagWidget->SetDrawSize(FVector2D(150, 50));
 	}
 
+	WeaponSocket = CreateDefaultSubobject<USceneComponent>(TEXT("Weapon Socket"));
+	WeaponSocket->SetupAttachment(GetMesh(), USSocketNames::Weapon);
+
+	ShieldSocket = CreateDefaultSubobject<USceneComponent>(TEXT("Shield Socket"));
+	ShieldSocket->SetupAttachment(GetMesh(), USSocketNames::Shield);
+	ShieldSocket->SetRelativeLocation(FVector(0, 3.f, 0));
+	ShieldSocket->SetRelativeRotation(FRotator(0,0,-10));
+
+	
+
 	// Character Stat Init
-	{
-		BasicJumpIntensity = 600.f;
-		BasicWalkSpeed = 600.f;
-		MaxHP = 100.f;
+	BasicJumpIntensity = 600.f;
+	BasicWalkSpeed = 600.f;
+	MaxHP = 100.f;
 
-	}
-
+	// Character State Init
 	ActionStateBitMask = 0;
+
 
 }
 
@@ -89,14 +100,17 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 	// Client only
 	if(IsLocallyControlled())
 	{
-		if(BufferedOrder.Type != FUSOrderType::None)
+		if(BufferedOrder.Type != FUSOrderType::None && IsOrderAcceptable())
 		{
 			ExecuteOrder(BufferedOrder);
 			BufferedOrder.Init();
 		}
 
+#if defined(UE_BUILD_DEBUG) || defined(UE_BUILD_DEVELOPMENT)
 		PrintCharacterStateOnScreen();
 		PrintCharacterStatOnScreen();
+#endif
+		
 	}
 	
 	// Server only
@@ -126,27 +140,27 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 void AUSFightingCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-
-
-
+	
 	//Apply Character Stat
 	{
 		GetCharacterMovement()->JumpZVelocity = BasicJumpIntensity;
 		GetCharacterMovement()->MaxAcceleration = TNumericLimits<float>::Max();
 		GetCharacterMovement()->MaxWalkSpeed = BasicWalkSpeed;
+
 	}
-		if(IsLocallyControlled())
-    		GEngine->AddOnScreenDebugMessage(13, 10.f, FColor::Red,
-    			FString::Printf(
-    			TEXT("Post init %f") ,	GetCharacterMovement()->MaxWalkSpeed));
+	
 }
 
 void AUSFightingCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	EquipWeapon(WeaponClass);
+	
 	CastChecked<UIngameCharacterInfo>(NameTagWidget->GetWidget())->SetPlayer(this);
 	CurHP = MaxHP;
+
+	
 }
 
 void AUSFightingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -159,6 +173,28 @@ void AUSFightingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AUSFightingCharacter, ActionStateBitMask);
 }
 
+
+void AUSFightingCharacter::EquipWeapon(UClass* InWeaponClass)
+{
+	const FVector spawnLocation = WeaponSocket->GetComponentLocation();
+	const FRotator spawnRotate = WeaponSocket->GetComponentRotation();
+	
+	FActorSpawnParameters params;
+	params.Owner = this;
+	params.Instigator = GetInstigator();
+	
+	CurEquippedWeapon = GetWorld()->SpawnActor<AUSWeaponBase>(InWeaponClass, params);
+
+	check(CurEquippedWeapon != nullptr);
+
+	FAttachmentTransformRules rule(EAttachmentRule::SnapToTarget, true);
+
+	CurEquippedWeapon->AttachToComponent(WeaponSocket, rule);
+
+	GetMesh()->SetAnimClass(CurEquippedWeapon->GetWeaponAnimBP());
+	//UE_LOG(LogTemp, Log, TEXT("%s"), *GetMesh()->GetAnimInstance()->GetName());
+	UE_LOG(LogTemp, Log, TEXT("%s"), *CurEquippedWeapon->GetWeaponAnimBP()->GetName());
+}
 
 void AUSFightingCharacter::OnJumped_Implementation()
 {
@@ -192,6 +228,10 @@ void AUSFightingCharacter::ExecuteOrder(const FUSOrder& InOrder)
 	case FUSOrderType::Jump:
 		Jump();
 		break;
+	case FUSOrderType::Attack:
+		Attack();
+		break;
+		
 
 		// TO-DO: send order request from client to server
 
@@ -230,5 +270,11 @@ void AUSFightingCharacter::OrderTo(FUSOrder InOrder)
 	}
 
 	ExecuteOrder(InOrder);
+	
+}
+
+void AUSFightingCharacter::Attack_Implementation()
+{
+	
 	
 }

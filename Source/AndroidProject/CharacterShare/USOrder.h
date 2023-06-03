@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "Engine/UserDefinedStruct.h"
 #include "USOrder.generated.h"
 
 UENUM(BlueprintType)

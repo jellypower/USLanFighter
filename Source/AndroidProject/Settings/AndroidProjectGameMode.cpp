@@ -1,9 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidProjectGameMode.h"
+
+#include "LoginManagerComponent.h"
 #include "Characters/AndroidProjectPlayerController.h"
 #include "Characters/USFightingCharacter.h"
 #include "UObject/ConstructorHelpers.h"
+
+#include "LoginManagerComponent.h"
+
 
 
 AAndroidProjectGameMode::AAndroidProjectGameMode()
@@ -27,6 +32,15 @@ AAndroidProjectGameMode::AAndroidProjectGameMode()
 		PlayerControllerClass = PlayerControllerBPClass.Class;
 	}
 
+	LoginManagerComp = CreateDefaultSubobject<ULoginManagerComponent>(TEXT("Login Manager"));
+	
+
+}
+
+void AAndroidProjectGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId,
+	FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
 void AAndroidProjectGameMode::PostLogin(APlayerController* NewPlayer)
@@ -44,6 +58,5 @@ void AAndroidProjectGameMode::PostLogin(APlayerController* NewPlayer)
 	
 	UE_LOG(LogTemp, Log, TEXT("%s logged in"), *NewPlayer->GetName());
 
-	
 	
 }
