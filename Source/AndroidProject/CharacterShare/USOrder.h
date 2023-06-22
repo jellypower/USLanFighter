@@ -13,7 +13,7 @@ enum class FUSOrderType : uint8
 	Attack,
 	Skill1,
 	Skill2,
-	Kick
+	Smash
 };
 
 
@@ -24,24 +24,45 @@ struct FUSOrder
 
 	FUSOrder() :
 		Type(FUSOrderType::None), dir(FVector_NetQuantizeNormal::Zero())
-	{}
-	
+	{
+	}
+
+	FUSOrder(FUSOrderType InType) :
+		Type(InType), dir(FVector_NetQuantizeNormal::Zero())
+	{
+	}
+
 	FUSOrder(FUSOrderType InType, FVector_NetQuantizeNormal InDir) :
 		Type(InType), dir(InDir)
-	{}
-	
+	{
+	}
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FUSOrderType Type;
 
 	UPROPERTY(BlueprintReadWrite)
 	FVector_NetQuantizeNormal dir;
 
-	
-	
+
 	void Init()
 	{
 		dir = FVector_NetQuantizeNormal::Zero();
 		Type = FUSOrderType::None;
 	}
-	
+
+	bool IsMovementOrder() const
+	{
+		return
+			Type == FUSOrderType::Move ||
+			Type == FUSOrderType::Jump;
+	}
+
+	bool IsCastOrder() const
+	{
+		return
+			Type == FUSOrderType::Attack ||
+			Type == FUSOrderType::Skill1 ||
+			Type == FUSOrderType::Skill2 ||
+			Type == FUSOrderType::Smash;
+	}
 };
