@@ -6,6 +6,7 @@
 #include "Templates/SubclassOf.h"
 #include "GameFramework/PlayerController.h"
 #include "InputActionValue.h"
+
 #include "AndroidProjectPlayerController.generated.h"
 
 /** Forward declaration to improve compiling times */
@@ -29,7 +30,7 @@ protected:
 
 #pragma endregion
 	
-#pragma region Input Setting variables
+#pragma region Input Settings variables
 public:
 	
 	/** MappingContext */
@@ -40,6 +41,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
 	class UInputActionDataAsset* MyInputAction;
 
+	FVector2D GetCurInputDir() const { return CurInputDir; }
+
+protected:
+	
+	void OnInputMove(const FInputActionValue& val);
+	void OffInputMove(const FInputActionValue& val);
+	void OnInputJump(const FInputActionValue& val);
+	void OnInputSkill1(const FInputActionValue& val);
+	void OnInputSkill2(const FInputActionValue& val);
+	void OnInputAttack(const FInputActionValue& val);
+	void OnInputSmash(const FInputActionValue& val);
+
+	UPROPERTY(VisibleAnywhere, Category=Input)
+	FVector2D CurInputDir;
 
 #pragma endregion
 	
@@ -56,21 +71,6 @@ private:
 
 	UPROPERTY(VisibleInstanceOnly)
 	TObjectPtr<class UUSTouchInterfaceButton> TouchInterfaceBtnWidgetInstance;
-
-#pragma endregion
-
-
-
-#pragma region Input Setting Functions
-protected:
-	
-	void OnInputMove(const FInputActionValue& val);
-	void OnInputJump(const FInputActionValue& val);
-	void OnInputSkill1(const FInputActionValue& val);
-	void OnInputSkill2(const FInputActionValue& val);
-	void OnInputAttack(const FInputActionValue& val);
-	void OnInputKick(const FInputActionValue& val);
-
 
 #pragma endregion
 

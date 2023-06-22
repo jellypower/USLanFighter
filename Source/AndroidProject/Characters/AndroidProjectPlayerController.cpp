@@ -10,9 +10,7 @@
 #include "InputDataAsset/InputActionDataAsset.h"
 
 #include "USFightingCharacter.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "UI/USTouchInterfaceButton.h"
-
 
 
 AAndroidProjectPlayerController::AAndroidProjectPlayerController()
@@ -49,23 +47,20 @@ void AAndroidProjectPlayerController::BeginPlay()
 		TouchInterfaceBtnWidgetInstance->AddToViewport();
 
 		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::JumpButton, EUSBtnTouchTriggerEvent::OnPressed
-			, this, &AAndroidProjectPlayerController::OnInputJump);
+		                                            , this, &AAndroidProjectPlayerController::OnInputJump);
 
 		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::Skill1Button, EUSBtnTouchTriggerEvent::OnPressed
-			, this, &AAndroidProjectPlayerController::OnInputSkill1);
+		                                            , this, &AAndroidProjectPlayerController::OnInputSkill1);
 
 		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::Skill2Button, EUSBtnTouchTriggerEvent::OnPressed
-			, this, &AAndroidProjectPlayerController::OnInputSkill2);
+		                                            , this, &AAndroidProjectPlayerController::OnInputSkill2);
 
 		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::AttackButton, EUSBtnTouchTriggerEvent::OnPressed
-			, this, &AAndroidProjectPlayerController::OnInputAttack);
+		                                            , this, &AAndroidProjectPlayerController::OnInputAttack);
 
 		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::KickButton, EUSBtnTouchTriggerEvent::OnPressed
-			, this, &AAndroidProjectPlayerController::OnInputKick);
-
-		
+		                                            , this, &AAndroidProjectPlayerController::OnInputSmash);
 	}
-
 }
 
 void AAndroidProjectPlayerController::OnPossess(APawn* InPawn)
@@ -93,61 +88,65 @@ void AAndroidProjectPlayerController::SetupInputComponent()
 
 		// Setup mouse input event
 		EnhancedInputComponent->BindAction(MyInputAction->IAJump, ETriggerEvent::Started, this
-			, &AAndroidProjectPlayerController::OnInputJump);
-		
+		                                   , &AAndroidProjectPlayerController::OnInputJump);
+
 		EnhancedInputComponent->BindAction(MyInputAction->IASkill1, ETriggerEvent::Started, this
-			, &AAndroidProjectPlayerController::OnInputSkill1);
+		                                   , &AAndroidProjectPlayerController::OnInputSkill1);
 
 		EnhancedInputComponent->BindAction(MyInputAction->IASkill2, ETriggerEvent::Started, this
-			, &AAndroidProjectPlayerController::OnInputSkill2);
+		                                   , &AAndroidProjectPlayerController::OnInputSkill2);
 
 		EnhancedInputComponent->BindAction(MyInputAction->IAAttack, ETriggerEvent::Started, this
-			, &AAndroidProjectPlayerController::OnInputAttack);
+		                                   , &AAndroidProjectPlayerController::OnInputAttack);
 
 		EnhancedInputComponent->BindAction(MyInputAction->IAKick, ETriggerEvent::Started, this
-			, &AAndroidProjectPlayerController::OnInputKick);
+		                                   , &AAndroidProjectPlayerController::OnInputSmash);
 
 		EnhancedInputComponent->BindAction(MyInputAction->IAMove, ETriggerEvent::Triggered, this
-	, &AAndroidProjectPlayerController::OnInputMove);
+		                                   , &AAndroidProjectPlayerController::OnInputMove);
+
+		EnhancedInputComponent->BindAction(MyInputAction->IAMove, ETriggerEvent::Completed, this
+					, &AAndroidProjectPlayerController::OffInputMove);
 	}
 }
 
 void AAndroidProjectPlayerController::OnInputMove(const FInputActionValue& val)
 {
-	FVector2D dir2D = val.Get<FVector2D>();
-	dir2D.Normalize();
+	CurInputDir = val.Get<FVector2D>();
+	CurInputDir.Normalize();
+
 	
-	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Move,
-		FVector_NetQuantizeNormal(dir2D.Y, dir2D.X, 0)));
-	
+	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Move, CurInputDir));
+}
+
+void AAndroidProjectPlayerController::OffInputMove(const FInputActionValue& val)
+{
+	CurInputDir = FVector2d::Zero();
+	UE_LOG(LogTemp, Log, TEXT("%f %f"), GetCurInputDir().X, GetCurInputDir().Y);
 }
 
 void AAndroidProjectPlayerController::OnInputJump(const FInputActionValue& val)
 {
-	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Jump,
-		FVector_NetQuantizeNormal::Zero()));
+	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Jump, GetCurInputDir()));
 }
 
 void AAndroidProjectPlayerController::OnInputSkill1(const FInputActionValue& val)
 {
 	UE_LOG(LogTemp, Log, TEXT("Skill1"));
+	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Skill1, GetCurInputDir()));
 }
 
 void AAndroidProjectPlayerController::OnInputSkill2(const FInputActionValue& val)
 {
 	UE_LOG(LogTemp, Log, TEXT("Skill2"));
-
 }
 
 void AAndroidProjectPlayerController::OnInputAttack(const FInputActionValue& val)
 {
-	UE_LOG(LogTemp, Log, TEXT("Attack"));
-
+	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Attack, GetCurInputDir()));
 }
 
-void AAndroidProjectPlayerController::OnInputKick(const FInputActionValue& val)
+void AAndroidProjectPlayerController::OnInputSmash(const FInputActionValue& val)
 {
 	UE_LOG(LogTemp, Log, TEXT("Kick"));
-
 }
-

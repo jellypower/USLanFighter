@@ -33,6 +33,6 @@ protected:
 	FString playerName;
 
 public:
-	inline void SetPlayer(AUSFightingCharacter* InPlayer);
+	void SetPlayer(AUSFightingCharacter* InPlayer);
 	
 };

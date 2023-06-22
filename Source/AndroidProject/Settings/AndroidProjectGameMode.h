@@ -28,6 +28,14 @@ public:
 #pragma endregion
 
 	
+protected:
+
+	UPROPERTY(EditDefaultsOnly)
+	int32 PlayerNumMaximum = 3;
+
+	UPROPERTY(EditDefaultsOnly)
+	class UWeaponList* AvailableWeaponList;
+	
 private:
 	int32 PlayerCount = 0;
 };

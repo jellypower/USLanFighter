@@ -26,6 +26,13 @@ class ANDROIDPROJECT_API UWeaponList : public UDataAsset
 	GENERATED_BODY()
 public:
 
+	UClass* GetWeaponClassWithName(FName name)
+	{
+		return Data.FindChecked(name).WeaponClass;
+		
+	}
+
+protected:
 	UPROPERTY(EditDefaultsOnly)
 	TMap<FName, FWeaponData> Data;
 

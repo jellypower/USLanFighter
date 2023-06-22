@@ -13,50 +13,108 @@ class ANDROIDPROJECT_API AUSWeaponBase : public AActor
 	GENERATED_BODY()
 
 #pragma region Unreal events
-public:	
+
+public:
 	AUSWeaponBase();
 	virtual void PostInitializeComponents() override;
 
 protected:
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
+	virtual void SetOwner(AActor* NewOwner) override;
+
+
+#pragma endregion
+
+
+#pragma region Effect
+public:
+	UFUNCTION(NetMulticast, Unreliable)
+	void CastAttackHitEffect(FVector_NetQuantize100 spawnLocation, FRotator spawnRotate);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void StartSlashEffects();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void EndSlashEffect();
 #pragma endregion 
 
 #pragma region Components
 protected:
-	UPROPERTY(VisibleAnywhere, Category="Component")
+	UPROPERTY(VisibleAnywhere, Category="WeaponBaseSetting")
 	USkeletalMeshComponent* WeaponMeshComp;
 
-	UPROPERTY(VisibleAnywhere, Category="Component")
+	UPROPERTY(VisibleAnywhere, Category="WeaponBaseSetting")
 	UBoxComponent* WeaponDmgBoxComp;
 
-#pragma endregion 
+	UPROPERTY(VisibleAnywhere, Category="WeaponBaseSetting")
+	UParticleSystemComponent* TrailParticleComp;
+
+	UPROPERTY(VisibleInstanceOnly, Category="WeaponBaseSetting")
+	TArray<class USkillComponentBase*> Skills;
+
+public:
+	class USkillComponentBase* GetSkill(uint8 SkillIdx) const;
+	uint8 GetTotalSkillNum() const { return Skills.Num();}
+
+#pragma endregion
 
 
 #pragma region Weapon Setting
-private:
-
-	UPROPERTY(EditDefaultsOnly, Category= WeaponAnimSetting)
-	TArray<UAnimMontage*> AttackMotionMontage;
-
-	UPROPERTY(EditDefaultsOnly, Category= WeaponAnimSetting)
-	TSubclassOf<class UUSCharacterAnim> WeaponAnimBP;
-
-	
-	UPROPERTY(EditDefaultsOnly, Category= WeaponAnimSetting)
-	int ComboMaxNum;
 	
 public:
+	uint8 GetComboMaxNum() const { return ComboMaxNum; }
 
-	inline UClass* GetWeaponAnimBP() const;
+	UClass* GetWeaponAnimBP() const;
+
+	TObjectPtr<UAnimMontage> GetPlayerAttackAnim() const { return AttackMotionMontage; }
+
+	TObjectPtr<class AUSFightingCharacter> GetOwnerAUSCharacter() const;
 	
-	TObjectPtr<UAnimMontage> GetPlayerAttackAnim(int idx){ return AttackMotionMontage[idx]; }
+protected:
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting")
+	UAnimMontage* AttackMotionMontage;
 
-#pragma endregion 
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting")
+	UAnimMontage* AirAttackMontage;
 
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting")
+	TSubclassOf<class UUSCharacterAnim> WeaponAnimBP;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "WeaponBaseSetting")
+	UParticleSystem* AttackImpactEffect;
+
+protected:
+	TObjectPtr<class AUSFightingCharacter> OwnerAUSCharacter;	
+	uint8 ComboMaxNum;
+
+#pragma endregion
+
+#pragma region Weapon Effect
+
+public:
+	void StartAttack(float InDmg, float InImpact = 0);
+	void StartGivingDmg(float InDmg);
+	void StartGivingImpact(float InImpact);
+
+	void EndAttack();
+
+
+private:
+	bool bIsWeaponDmgEffective = false;
+	bool bIsWeaponImpactEffective = false;
+
+	float curWeaponDmg;
+	float curWeaponImpact;
+
+	TSet<class AUSFightingCharacter*> AlreadyAttackedCharacters;
+public:
+	void ClearAttackedCharacter(){AlreadyAttackedCharacters.Empty();}
+
+#pragma endregion
 };

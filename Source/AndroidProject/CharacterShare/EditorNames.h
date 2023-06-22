@@ -20,6 +20,13 @@ namespace CollisionName
 	const static FName Attack = FName("Attack");
 }
 
+namespace USCollisionChannel
+{
+	constexpr static ECollisionChannel Attack = ECollisionChannel::ECC_GameTraceChannel1;
+	constexpr static ECollisionChannel DmgBoxChannel = ECollisionChannel::ECC_GameTraceChannel2;
+}
+
+
 namespace MontageSectionNames
 {
 	const static FName Combo[4]

@@ -4,9 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
-#include "CharacterShare/EUSPlayerActionState.h"
 
 #include "USCharacterAnim.generated.h"
+
 
 /**
  * 
@@ -15,20 +15,65 @@ UCLASS()
 class ANDROIDPROJECT_API UUSCharacterAnim : public UAnimInstance
 {
 	GENERATED_BODY()
-
-#pragma region Unreal Event
+	
 public:
 	virtual void NativeInitializeAnimation() override;
-	virtual void NativeBeginPlay() override;
+	
+	void AnimateAttack(const uint8 InCurComboNum);
+	void StopAnimateAttack();
+	void AnimateImpacted(uint8 AnimateIdx);
+	void AnimateBlown();
 
-#pragma endregion 
+	void AnimateSkillCast(const uint8 InSkillIndex);
 
-
-#pragma region Character state
+	uint8 IsAttackMotionPlaying() const;
+	uint8 IsCastingMotionPlaying() const;
+	uint8 IsAnyCastingMotionPlaying() const;
+	void StopPlayingAnyMotion();
+	uint8 GetTakeImpactAnimNum() const { return TakeImpactAnimNum; }
+	
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	class AUSFightingCharacter* AnimatingCharacter;
 
+	UPROPERTY(BlueprintReadOnly)
+	class AUSWeaponBase* AnimatingCharacterWeapon;
 
-#pragma endregion 
+	UPROPERTY(EditDefaultsOnly)
+	TArray<UAnimMontage*> TakeImpactAnimMontageDirBase;
+
+	UFUNCTION()
+	void AnimNotify_OnNextActionCastable();
+	
+	UFUNCTION()
+	void AnimNotify_OnEndOfEffectiveAttack();
+
+	UFUNCTION()
+	void AnimNotify_OnTriggerSkillEffect();
+
+	uint8 TakeImpactAnimNum;
+
+	UPROPERTY(BlueprintReadWrite)
+	bool bImpactEnterTrigger = false;
+	
+	UPROPERTY(BlueprintReadWrite)
+	bool bBlownEnterTrigger = false;
+
+	UFUNCTION(BlueprintPure)
+	bool IsImpacted() const;
+
+	UFUNCTION(BlueprintPure)
+	bool IsBlown() const;
+
+	UFUNCTION()
+	void RecoveryCharacterFromImpacted(UAnimMontage* Montage, bool bInterrupted);
+	// called when hurt animation is over
+
+	UFUNCTION()
+	void ExitFromCastState(UAnimMontage* Montage, bool bInterrupted);
+
+private:
+	FOnMontageEnded OnImpactMontageEnded, OnAtkAnimateEnded;
+
+
 };

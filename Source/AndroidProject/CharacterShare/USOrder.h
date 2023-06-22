@@ -37,6 +37,11 @@ struct FUSOrder
 	{
 	}
 
+	FUSOrder(FUSOrderType InType, FVector2D InDir) :
+		Type(InType), dir(FVector_NetQuantizeNormal(InDir.Y, InDir.X, 0))
+	{
+	}
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FUSOrderType Type;
 
