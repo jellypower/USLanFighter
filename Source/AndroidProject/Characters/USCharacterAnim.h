@@ -40,7 +40,7 @@ protected:
 	class AUSWeaponBase* AnimatingCharacterWeapon;
 
 	UPROPERTY(EditDefaultsOnly)
-	TArray<UAnimMontage*> TakeImpactAnimMontageDirBase;
+	TArray<UAnimMontage*> TakeImpactAnimMontage;
 
 	UFUNCTION()
 	void AnimNotify_OnNextActionCastable();
@@ -58,12 +58,7 @@ protected:
 	
 	UPROPERTY(BlueprintReadWrite)
 	bool bBlownEnterTrigger = false;
-
-	UFUNCTION(BlueprintPure)
-	bool IsImpacted() const;
-
-	UFUNCTION(BlueprintPure)
-	bool IsBlown() const;
+	
 
 	UFUNCTION()
 	void RecoveryCharacterFromImpacted(UAnimMontage* Montage, bool bInterrupted);

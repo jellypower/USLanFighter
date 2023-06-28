@@ -50,7 +50,7 @@ void UWhirlwind::TriggerEffect()
 		AUSFightingCharacter* Target = Cast<AUSFightingCharacter>(Result.GetActor());
 		if (IsValid(Target) && OwnerUSFighter != Target)
 		{
-			FVector AtkDir = Target->GetActorLocation() - GetOwner()->GetActorLocation();
+			FVector AtkDir = Target->GetActorLocation() - OwnerUSFighter->GetActorLocation();
 			AtkDir.Normalize();
 
 			constexpr float EFFECT_CAST_BIAS = 50.f;
@@ -58,9 +58,10 @@ void UWhirlwind::TriggerEffect()
 
 			CastAttackHitEffect(EffectLocation, AtkDir.Rotation());
 
-			Target->TakeDamage(SwingDmg[SwingCount], FDamageEvent(), GetOwner()->GetInstigatorController(), GetOwner());
-			Target->TakeImpact(SwingImpact[SwingCount], GetOwner()->GetInstigatorController(), GetOwner(),
+			Target->USTakeDamage(SwingDmg[SwingCount], FVector2D(AtkDir), GetOwner()->GetInstigatorController(), OwnerUSFighter);
+			Target->USTakeImpact(SwingImpact[SwingCount], GetOwner()->GetInstigatorController(), OwnerUSFighter,
 			                   FVector2D(AtkDir));
+
 		}
 	}
 

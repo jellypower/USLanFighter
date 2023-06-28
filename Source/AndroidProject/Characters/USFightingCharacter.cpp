@@ -20,6 +20,7 @@
 #include "Weapons/USWeaponBase.h"
 #include "Skill/SkillComponentBase.h"
 #include "Weapons/USDualWieldWeaponBase.h"
+#include "Skill/USAttackBlockable.h"
 
 AUSFightingCharacter::AUSFightingCharacter()
 {
@@ -140,13 +141,21 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 			ServerBufferedOrder.Type = FUSOrderType::Move;
 		}
 
-		if (ServerBufferedOrder.Type != FUSOrderType::None && IsOrderExecutableState())
+		if (ServerBufferedOrder.Type != FUSOrderType::None)
 		{
-			if (ServerBufferedOrder.Type != FUSOrderType::Attack && CharAnim->IsAnyCastingMotionPlaying())
-				StopAnimateAllCastingMotion();
+			if(IsOrderExecutableState())
+			{
+				if (ServerBufferedOrder.Type != FUSOrderType::Attack && CharAnim->IsAnyMontagePlaying())
+					StopAnimateAnyMotion();
 
-			ExecuteOrderOnServer(ServerBufferedOrder);
-			ServerBufferedOrder.Init();
+				ExecuteOrderOnServer(ServerBufferedOrder);
+				ServerBufferedOrder.Init();
+			}
+			else if(IsExecutableOrderInOrderNotExecutableState(ServerBufferedOrder))
+			{
+				ExecuteOrderOnServer(ServerBufferedOrder);
+				ServerBufferedOrder.Init();
+			}
 		}
 	}
 }
@@ -175,6 +184,13 @@ void AUSFightingCharacter::BeginPlay()
 	CastChecked<UIngameCharacterInfo>(NameTagWidget->GetWidget())->SetPlayer(this);
 }
 
+void AUSFightingCharacter::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	CurEquippedWeapon->Destroy();
+}
+
 void AUSFightingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -185,11 +201,31 @@ void AUSFightingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AUSFightingCharacter, ActionStateBitMask);
 	DOREPLIFETIME(AUSFightingCharacter, CurEquippedWeapon);
 	DOREPLIFETIME(AUSFightingCharacter, CurComboIdx);
+	DOREPLIFETIME(AUSFightingCharacter, ImpactTakeThreshold);
+	DOREPLIFETIME(AUSFightingCharacter, BlownTakeThreshold);
 }
 
 void AUSFightingCharacter::OnRep_CurEquippedWeapon()
 {
 	EquipWeapon();
+	UE_LOG(LogTemp, Log, TEXT("%s's cur equipped impact block num: %d"), *GetName(), AttackBlockingSkills.Num());
+}
+
+bool AUSFightingCharacter::IsExecutableOrderInOrderNotExecutableState(const FUSOrder& InOrder) const
+{
+
+	return 
+	(IsImpacted() && InOrder.Type == FUSOrderType::Skill1 && CurEquippedWeapon->GetSkill(0)->GetCastableOnImpacted()) ||
+	(IsImpacted() && InOrder.Type == FUSOrderType::Skill2 && CurEquippedWeapon->GetSkill(1)->GetCastableOnImpacted()) ||
+	(IsBlown() && InOrder.Type == FUSOrderType::Skill1 && CurEquippedWeapon->GetSkill(0)->GetCastableOnBlown()) ||
+	(IsBlown() && InOrder.Type == FUSOrderType::Skill2 && CurEquippedWeapon->GetSkill(1)->GetCastableOnBlown());
+	
+}
+
+void AUSFightingCharacter::RecoveryFromImpacted()
+{
+	RecoveryFromImpactedState_Internal();
+	
 }
 
 void AUSFightingCharacter::HandWeaponToPlayer(UClass* InWeaponClass)
@@ -211,6 +247,14 @@ void AUSFightingCharacter::EquipWeapon()
 	CurEquippedWeapon->AttachToComponent(WeaponSocket, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	CurEquippedWeapon->SetOwner(this);
 	CurEquippedWeapon->SetInstigator(this);
+
+	for (int i = 0; i < CurEquippedWeapon->GetTotalSkillNum(); i++)
+	{
+		if (IUSAttackBlockable* ImpactBlockingSkill = Cast<IUSAttackBlockable>(CurEquippedWeapon->GetSkill(i)))
+		{
+			AttackBlockingSkills.Add(ImpactBlockingSkill);
+		}
+	}
 
 	if (const AUSDualWieldWeaponBase* DualWeapon = Cast<AUSDualWieldWeaponBase>(CurEquippedWeapon))
 	{
@@ -245,28 +289,57 @@ bool AUSFightingCharacter::IsMoveInputIgnored() const
 	return Super::IsMoveInputIgnored() || !IsOrderExecutableState();
 }
 
-float AUSFightingCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
+float AUSFightingCharacter::USTakeDamage(float DamageAmount, const FVector2D& AtkDir,
                                        AController* EventInstigator, AActor* DamageCauser)
 {
-	CurHP -= DamageAmount;
+	if(HasAuthority())
+	{
+		for (auto AttackBlockingSkill : AttackBlockingSkills)
+		{
+			AUSFightingCharacter* DmgCausedUSCahracter = Cast<AUSFightingCharacter>(DamageCauser);
 
-	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+			if (AttackBlockingSkill->IsTakenDmgBlockable
+				(DamageAmount, DmgCausedUSCahracter, EventInstigator, AtkDir))
+			{
+				return 0;
+			}
+		}
+		
+		CurHP -= DamageAmount;
+
+		return DamageAmount;
+	}
+
+	return DamageAmount;
 }
 
-float AUSFightingCharacter::TakeImpact(float ImpactAmount, AController* EventInstigator, AActor* DamageCauser,
+float AUSFightingCharacter::USTakeImpact(float ImpactAmount, AController* EventInstigator, AActor* DamageCauser,
                                        const FVector2D& AtkDir)
 {
-	if (IsCasting())
-		InterruptCasting();
-
 	if (HasAuthority())
 	{
+		for (auto ImpactBlockingSkill : AttackBlockingSkills)
+		{
+			AUSFightingCharacter* DmgCausedUSCahracter = Cast<AUSFightingCharacter>(DamageCauser);
+
+			if (ImpactBlockingSkill->IsTakenImpactBlockable
+				(ImpactAmount, DmgCausedUSCahracter, DamageCauser, AtkDir))
+			{
+				ImpactBlockingSkill->OnBlocked(ImpactAmount, AtkDir, DmgCausedUSCahracter, DamageCauser);
+				return 0;
+			}
+		}
+
+		if (IsCasting())
+			InterruptCastingOnServer();
+
+
 		uint8 AnimateIdx = FMath::RandRange(0, CharAnim->GetTakeImpactAnimNum() - 1);
 		AnimateImpacted(AnimateIdx);
 		ActionStateBitMask = EUSPlayerActionState::Impacted;
 	}
 
-	return 0;
+	return ImpactAmount;
 }
 
 
@@ -283,32 +356,32 @@ void AUSFightingCharacter::SendOrderToServer(const FUSOrder& InOrder)
 	case FUSOrderType::Jump:
 		AddMovementInput(InOrder.dir);
 		Jump();
-		SendOrderToServer_Reliable(InOrder); // Cancel the other cast orders on server 
+		SendOrderToServer_Internal_Reliable(InOrder); // Cancel the other cast orders on server 
 		break;
 
 
 	case FUSOrderType::Attack:
-		SendOrderToServer_Reliable(InOrder);
+		SendOrderToServer_Internal_Reliable(InOrder);
 		break;
 
 
 	case FUSOrderType::Skill1:
 		SkillToCast = CurEquippedWeapon->GetSkill(0);
 		Castable = SkillToCast->IsCastable();
-		if (Castable) SendOrderToServer_Reliable(InOrder);
+		if (Castable) SendOrderToServer_Internal_Reliable(InOrder);
 		else OnCastNotCastableSkillOnClient.Broadcast(Castable, SkillToCast->GetName());
 		break;
 
 	case FUSOrderType::Skill2:
 		SkillToCast = CurEquippedWeapon->GetSkill(1);
 		Castable = SkillToCast->IsCastable();
-		if (Castable) SendOrderToServer_Reliable(InOrder);
+		if (Castable) SendOrderToServer_Internal_Reliable(InOrder);
 		else OnCastNotCastableSkillOnClient.Broadcast(Castable, SkillToCast->GetName());
 		break;
 
 
 	case FUSOrderType::Smash:
-		SendOrderToServer_Reliable(InOrder);
+		SendOrderToServer_Internal_Reliable(InOrder);
 		break;
 
 
@@ -370,17 +443,19 @@ void AUSFightingCharacter::OrderTo(FUSOrder InOrder)
 		return;
 	}
 
-	if (!IsOrderExecutableState())
+	if (IsOrderExecutableState() || IsExecutableOrderInOrderNotExecutableState(InOrder))
+	{
+		SendOrderToServer(InOrder);
+	}
+	else
 	{
 		BufferedOrder = InOrder;
-		return;
 	}
 
-	SendOrderToServer(InOrder);
 }
 
 
-void AUSFightingCharacter::SendOrderToServer_Reliable_Implementation(FUSOrder InOrder)
+void AUSFightingCharacter::SendOrderToServer_Internal_Reliable_Implementation(FUSOrder InOrder)
 {
 	ServerBufferedOrder = InOrder;
 }
@@ -455,13 +530,10 @@ void AUSFightingCharacter::TriggerSkillEffect()
 	}
 }
 
-void AUSFightingCharacter::InterruptCasting()
+void AUSFightingCharacter::InterruptCastingOnServer()
 {
-	if (HasAuthority())
-	{
-		StopAnimateAllCastingMotion();
-		EndCastProcessOnServer(true);
-	}
+	StopAnimateAnyMotion();
+	EndCastProcessOnServer(true);
 }
 
 
@@ -491,7 +563,7 @@ void AUSFightingCharacter::StopAnimateAttack_Implementation()
 	CharAnim->StopAnimateAttack();
 }
 
-void AUSFightingCharacter::StopAnimateAllCastingMotion_Implementation()
+void AUSFightingCharacter::StopAnimateAnyMotion_Implementation()
 {
 	if (!IsValid(GetCurEquippedWeapon())) return;
 	CharAnim->StopPlayingAnyMotion();

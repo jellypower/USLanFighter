@@ -25,7 +25,6 @@ namespace EUSPlayerActionStateValue
 	static uint8 OrderUnAcceptableBitMask =
 		EUSPlayerActionState::Impacted |
 		EUSPlayerActionState::Blown |
-		EUSPlayerActionState::Jump |
 		EUSPlayerActionState::Cast; // TO-DO: delete jump from here and create new bitmask value
 	
 }

@@ -119,8 +119,8 @@ void AProjectileBase::OnProjCollision(AUSFightingCharacter* Target)
 	constexpr float EFFECT_CAST_COEFF = 50.f;
 	FVector CollisionPos = Target->GetActorLocation() - AtkDir * EFFECT_CAST_COEFF;
 
-	Target->TakeDamage(ProjectileDmg, DmgEvent, GetInstigatorController(), GetOwner());
-	Target->TakeImpact(ProjectileDmg, GetInstigatorController(), GetOwner(), AtkDir2D);
+	Target->USTakeDamage(ProjectileDmg, AtkDir2D, GetInstigatorController(), OwnerFighter.Get());
+	Target->USTakeImpact(ProjectileDmg, GetInstigatorController(), OwnerFighter.Get(), AtkDir2D);
 
 	CastAttackHitEffect(CollisionPos, AtkDir.Rotation());
 

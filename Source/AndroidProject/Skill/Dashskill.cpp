@@ -33,7 +33,7 @@ void UDashskill::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 			AUSFightingCharacter* Target =  Cast<AUSFightingCharacter>(Result.GetActor());
 			if(IsValid(Target) && OwnerUSFighter != Target && !AlreadyAttackedCharacters.Contains(Target))
 			{
-				FVector AtkDir = Target->GetActorLocation() - GetOwner()->GetActorLocation();
+				FVector AtkDir = OwnerUSFighter->GetActorForwardVector();
 				AtkDir.Normalize();
 
 				constexpr float EFFECT_CAST_BIAS= 50.f;
@@ -41,9 +41,11 @@ void UDashskill::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 
 				CastAttackHitEffect(EffectLocation, AtkDir.Rotation());
 				
-				Target->TakeDamage(SkillDmg, FDamageEvent(), GetOwner()->GetInstigatorController(), GetOwner());
-				Target->TakeImpact(SkillImpact, GetOwner()->GetInstigatorController(), GetOwner(),FVector2D(AtkDir));
+				Target->USTakeDamage(SkillDmg, FVector2D(AtkDir), GetOwner()->GetInstigatorController(), OwnerUSFighter);
+				Target->USTakeImpact(SkillImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter,FVector2D(AtkDir));
 				AlreadyAttackedCharacters.Add(Target);
+
+				UE_LOG(LogTemp, Log, TEXT("%s"), *GetOwner()->GetName());
 			}
 		}
 

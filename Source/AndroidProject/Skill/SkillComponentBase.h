@@ -23,11 +23,16 @@ public:
 	virtual void StartCast() PURE_VIRTUAL(USkillComponentBase::StartCast);
 	virtual void FinishCast() PURE_VIRTUAL(USkillComponentBase::FinishCast);
 	virtual void InterruptCast() PURE_VIRTUAL(USkillComponentBase::InterruptCast);
+
+	/** This function is called by Montage's Animnotify when certain action is casted on certain timing*/
 	virtual void TriggerEffect() PURE_VIRTUAL(USkillComponentBase::TriggerEffect);
 	
 	virtual bool IsCastable() const PURE_VIRTUAL(USkillComponentBase::IsCastable, return false; );
 	virtual bool IsCasting() const PURE_VIRTUAL(USkillComponentBase::IsCasting, return false; );
 	UAnimMontage* GetCastMotion() const { return CastMotion; }
+
+	bool GetCastableOnImpacted(){ return bCastableOnImpacted; }
+	bool GetCastableOnBlown(){ return bCastableOnBlown; }
 
 	void SetOwnerUSFighter(class AUSFightingCharacter* InCharacter);
 
@@ -43,6 +48,12 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, Replicated, Category=SkillSetting)
 	float CoolDownTimer = 0;
+
+	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
+	bool bCastableOnImpacted = false;
+
+	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
+	bool bCastableOnBlown = false;
 
 	void SetCooldown(){ CoolDownTimer = CoolDown;}
 	

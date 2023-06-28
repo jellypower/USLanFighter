@@ -13,6 +13,7 @@
 #include "USFightingCharacter.generated.h"
 
 
+class IUSAttackBlockable;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCastNotCastableSkill, bool, CastState, FString, SkillName);
 
 UCLASS(Blueprintable)
@@ -29,6 +30,8 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
+
+	virtual void BeginDestroy() override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -72,9 +75,11 @@ public:
 	virtual bool CanJumpInternal_Implementation() const override;
 
 	virtual bool IsMoveInputIgnored() const override;
-	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
-	                         AController* EventInstigator, AActor* DamageCauser) override;
-	float TakeImpact(float ImpactAmount, AController* EventInstigator, AActor* DamageCauser, const FVector2D& AtkDir);
+	
+	float USTakeDamage
+		(float DamageAmount, const FVector2D& AtkDir, AController* EventInstigator, AActor* DamageCauser);
+	float USTakeImpact
+		(float ImpactAmount, AController* EventInstigator, AActor* DamageCauser, const FVector2D& AtkDir);
 
 	void OrderTo(FUSOrder InOrder);
 
@@ -83,7 +88,7 @@ public:
 	void FinishCasting();
 	void TriggerSkillEffect();
 
-	void InterruptCasting();
+	void InterruptCastingOnServer();
 
 	FOnCastNotCastableSkill OnCastNotCastableSkillOnClient;
 	
@@ -98,7 +103,7 @@ protected:
 
 private:
 	UFUNCTION(Server, Reliable)
-	void SendOrderToServer_Reliable(FUSOrder InOrder);
+	void SendOrderToServer_Internal_Reliable(FUSOrder InOrder);
 
 	void StartCastProcessOnServer();
 	void ExecuteAttackOnServer(const FVector2D& Dir);
@@ -111,7 +116,7 @@ private:
 	void StopAnimateAttack();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void StopAnimateAllCastingMotion();
+	void StopAnimateAnyMotion();
 
 	UFUNCTION(NetMulticast, Reliable)
 	void AnimateSkillCasting(uint8 skillIdx);
@@ -154,6 +159,12 @@ protected:
 	UPROPERTY(EditAnywhere, Replicated)
 	float MaxHP;
 
+	UPROPERTY(EditAnywhere, Replicated)
+	float ImpactTakeThreshold;
+
+	UPROPERTY(EditAnywhere, Replicated)
+	float BlownTakeThreshold;
+
 public:
 	FString GetCharacterName() const { return CharacterName; }
 	void SetCharacterName(const FString& name) { this->CharacterName = name; }
@@ -165,6 +176,8 @@ public:
 
 
 	float GetMaxHP() const { return MaxHP; }
+	float GetImpactTakeThreshold() const { return ImpactTakeThreshold; }
+	float GetBlownTakeThreshold() const { return BlownTakeThreshold; }
 
 protected:
 	void EquipWeapon();
@@ -181,6 +194,9 @@ private:
 	UFUNCTION()
 	void OnRep_CurEquippedWeapon();
 
+	
+	TArray<IUSAttackBlockable*> AttackBlockingSkills;
+
 	UPROPERTY()
 	class UUSCharacterAnim* CharAnim;
 
@@ -189,6 +205,7 @@ private:
 
 	UPROPERTY(Replicated)
 	uint8 CurComboIdx = 0;
+
 
 	TWeakObjectPtr<class USkillComponentBase> CurCastingSkill;
 	
@@ -202,6 +219,8 @@ public:
 	{
 		return (ActionStateBitMask & EUSPlayerActionStateValue::OrderUnAcceptableBitMask) == 0;
 	}
+
+	bool IsExecutableOrderInOrderNotExecutableState(const FUSOrder& InOrder) const;
 
 
 	uint8 IsOrderIgnoredOnServer(const FUSOrder& InOrder) const 
@@ -266,15 +285,17 @@ public:
 		return (ActionStateBitMask & EUSPlayerActionState::Blown);
 	}
 
-	void RecoveryFromImpactedOnServer()
+	void RecoveryFromImpactedState_Internal()
 	{
-		UE_LOG(LogTemp, Log, TEXT("Authority: %d"), GetLocalRole() == ROLE_Authority);
 		if(HasAuthority())
 		{
 			UE_LOG(LogTemp, Log, TEXT("Recovery Implementation"));
 			ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Impacted;
 		}
 	}
+
+	void RecoveryFromImpacted();
+	void RecoveryFromBlown();
 
 
 	float GetCurHP() const { return CurHP; }

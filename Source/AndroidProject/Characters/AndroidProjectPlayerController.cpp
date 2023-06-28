@@ -139,6 +139,8 @@ void AAndroidProjectPlayerController::OnInputSkill1(const FInputActionValue& val
 void AAndroidProjectPlayerController::OnInputSkill2(const FInputActionValue& val)
 {
 	UE_LOG(LogTemp, Log, TEXT("Skill2"));
+	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Skill2, GetCurInputDir()));
+
 }
 
 void AAndroidProjectPlayerController::OnInputAttack(const FInputActionValue& val)

@@ -105,17 +105,18 @@ void AUSWeaponBase::NotifyActorBeginOverlap(AActor* OtherActor)
 			CastAttackHitEffect(spawnLocation, spawnRotate);
 		}
 
+		const FVector2D AtkDir = FVector2d(OtherActor->GetActorLocation() - Owner->GetActorLocation()); 
+
 		if (bIsWeaponDmgEffective)
 		{
 			FDamageEvent DmgEvent;
-			OtherUsFightingCharacter->TakeDamage(curWeaponDmg, DmgEvent, GetOwner()->GetInstigatorController(), this);
+			OtherUsFightingCharacter->USTakeDamage(curWeaponDmg, AtkDir, GetOwner()->GetInstigatorController(), OwnerAUSCharacter);
 		}
 
 		if (bIsWeaponImpactEffective)
 		{
-			OtherUsFightingCharacter->TakeImpact(curWeaponImpact, GetOwner()->GetInstigatorController(), this
-			                                     , FVector2d(
-				                                     OtherActor->GetActorLocation() - Owner->GetActorLocation()));
+			OtherUsFightingCharacter->USTakeImpact(curWeaponImpact, GetOwner()->GetInstigatorController(), OwnerAUSCharacter
+			                                     , AtkDir);
 		}
 	}
 }

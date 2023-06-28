@@ -20,7 +20,7 @@ void UUSCharacterAnim::NativeInitializeAnimation()
 		AnimatingCharacterWeapon = AnimatingCharacter->GetCurEquippedWeapon();
 	}
 
-	TakeImpactAnimNum = TakeImpactAnimMontageDirBase.Num();
+	TakeImpactAnimNum = TakeImpactAnimMontage.Num();
 	OnImpactMontageEnded.BindUObject(this, &UUSCharacterAnim::RecoveryCharacterFromImpacted);
 	OnAtkAnimateEnded.BindUObject(this, &UUSCharacterAnim::ExitFromCastState);
 	
@@ -50,9 +50,9 @@ void UUSCharacterAnim::StopAnimateAttack()
 
 void UUSCharacterAnim::AnimateImpacted(uint8 AnimateIdx)
 {
-	Montage_Play(TakeImpactAnimMontageDirBase[AnimateIdx]);
+	Montage_Play(TakeImpactAnimMontage[AnimateIdx]);
 	if(AnimatingCharacter->HasAuthority())
-		Montage_SetEndDelegate(OnImpactMontageEnded, TakeImpactAnimMontageDirBase[AnimateIdx]);
+		Montage_SetEndDelegate(OnImpactMontageEnded, TakeImpactAnimMontage[AnimateIdx]);
 
 }
 
@@ -98,6 +98,7 @@ void UUSCharacterAnim::StopPlayingAnyMotion()
 }
 
 
+
 void UUSCharacterAnim::AnimNotify_OnNextActionCastable()
 {
 	AnimatingCharacter->FinishCasting();
@@ -115,21 +116,12 @@ void UUSCharacterAnim::AnimNotify_OnTriggerSkillEffect()
 	AnimatingCharacter->TriggerSkillEffect();
 }
 
-bool UUSCharacterAnim::IsImpacted() const
-{
-	return AnimatingCharacter->IsImpacted();
-}
-
-bool UUSCharacterAnim::IsBlown() const
-{
-	return AnimatingCharacter->IsBlown();
-}
 
 void UUSCharacterAnim::RecoveryCharacterFromImpacted(UAnimMontage* Montage, bool bInterrupted)
 {
 	if(!bInterrupted)
 	{
-		AnimatingCharacter->RecoveryFromImpactedOnServer();
+		AnimatingCharacter->RecoveryFromImpactedState_Internal();
 	}
 
 }

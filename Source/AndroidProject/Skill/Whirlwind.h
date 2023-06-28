@@ -24,16 +24,16 @@ public:
 	
 protected:
 
-	UPROPERTY(EditDefaultsOnly, Category=Status)
+	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
 	FVector DmgAreaSize;
 	
-	UPROPERTY(EditDefaultsOnly, Category=Status)
+	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
 	float SwingDmg[3];
 
-	UPROPERTY(EditDefaultsOnly, Category=Status)
+	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
 	float SwingImpact[3];
 	
-	UPROPERTY(EditDefaultsOnly, Category = "Effects")
+	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
 	class UNiagaraSystem* AttackImpactEffectNiagara;
 	
 private:
