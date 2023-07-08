@@ -28,6 +28,7 @@ public:
 public:
 
 	virtual void SetOwner(AActor* NewOwner) override;
+	AUSFightingCharacter* GetOwnerUsFighter() const;
 
 	virtual void DeactivateProjectile();
 	virtual void ActivateProjectile(FVector SpawnPos, FVector CastDir, float Dmg, float Speed);

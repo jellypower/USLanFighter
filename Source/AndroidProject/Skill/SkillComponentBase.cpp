@@ -37,8 +37,22 @@ void USkillComponentBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(USkillComponentBase, CoolDownTimer);
 }
 
+void USkillComponentBase::BeginDestroy()
+{
+	Super::BeginDestroy();
+	UE_LOG(LogTemp, Error, TEXT("Skill has bee destroyed!!"));
+}
+
 void USkillComponentBase::SetOwnerUSFighter(AUSFightingCharacter* InCharacter)
 {
+
+	if(!IsValid(InCharacter))
+	{
+		OwnerUSFighter = nullptr;
+		OwnerWeapon = nullptr;
+		return;
+	}
+	
 	OwnerUSFighter = InCharacter;
 	OwnerWeapon = InCharacter->GetCurEquippedWeapon();
 }

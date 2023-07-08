@@ -27,11 +27,11 @@ public:
 
 
 	virtual bool IsTakenImpactBlockable
-		(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser, const FVector2D& AtkDir) const override;
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const override;
 	virtual bool IsTakenDmgBlockable
-		(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser, const FVector2D& AtkDir) const override;
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const override;
 	virtual void OnBlocked
-		(float TakenImpact, const FVector2D& TakenImpactDir, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser) override;
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) override;
 
 protected:
 

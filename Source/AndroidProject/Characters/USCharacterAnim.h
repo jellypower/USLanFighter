@@ -22,8 +22,9 @@ public:
 	void AnimateAttack(const uint8 InCurComboNum);
 	void StopAnimateAttack();
 	void AnimateImpacted(uint8 AnimateIdx);
+	UFUNCTION()
 	void AnimateBlown();
-
+	
 	void AnimateSkillCast(const uint8 InSkillIndex);
 
 	uint8 IsAttackMotionPlaying() const;
@@ -31,7 +32,7 @@ public:
 	uint8 IsAnyCastingMotionPlaying() const;
 	void StopPlayingAnyMotion();
 	uint8 GetTakeImpactAnimNum() const { return TakeImpactAnimNum; }
-	
+
 protected:
 	UPROPERTY(BlueprintReadOnly)
 	class AUSFightingCharacter* AnimatingCharacter;
@@ -41,7 +42,19 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	TArray<UAnimMontage*> TakeImpactAnimMontage;
+	
+	uint8 TakeImpactAnimNum;
 
+	UPROPERTY(BlueprintReadWrite)
+	bool bBlownEnterTrigger = false;
+	
+	
+	UFUNCTION(BlueprintPure)
+	bool IsCharacterBlown() const;
+	
+	UFUNCTION()
+	void ExitFromCastStateOnBasicAtk(UAnimMontage* Montage, bool bInterrupted);
+	
 	UFUNCTION()
 	void AnimNotify_OnNextActionCastable();
 	
@@ -51,24 +64,9 @@ protected:
 	UFUNCTION()
 	void AnimNotify_OnTriggerSkillEffect();
 
-	uint8 TakeImpactAnimNum;
-
-	UPROPERTY(BlueprintReadWrite)
-	bool bImpactEnterTrigger = false;
-	
-	UPROPERTY(BlueprintReadWrite)
-	bool bBlownEnterTrigger = false;
-	
-
-	UFUNCTION()
-	void RecoveryCharacterFromImpacted(UAnimMontage* Montage, bool bInterrupted);
-	// called when hurt animation is over
-
-	UFUNCTION()
-	void ExitFromCastState(UAnimMontage* Montage, bool bInterrupted);
+#pragma endregion 
 
 private:
-	FOnMontageEnded OnImpactMontageEnded, OnAtkAnimateEnded;
-
+	//FOnMontageEnded OnAtkAnimateEnded;
 
 };

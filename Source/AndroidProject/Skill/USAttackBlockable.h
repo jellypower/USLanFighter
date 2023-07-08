@@ -25,12 +25,12 @@ class ANDROIDPROJECT_API IUSAttackBlockable
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	virtual bool IsTakenImpactBlockable
-		(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser, const FVector2D& AtkDir) const = 0;
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const = 0;
 
 	virtual bool IsTakenDmgBlockable
-		(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser, const FVector2D& AtkDir) const = 0;
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const = 0;
 	
 	virtual void OnBlocked
-		(float TakenImpact, const FVector2D& TakenImpactDir, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser) = 0;
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) = 0;
 
 };

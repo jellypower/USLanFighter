@@ -21,8 +21,8 @@ void UUSCharacterAnim::NativeInitializeAnimation()
 	}
 
 	TakeImpactAnimNum = TakeImpactAnimMontage.Num();
-	OnImpactMontageEnded.BindUObject(this, &UUSCharacterAnim::RecoveryCharacterFromImpacted);
-	OnAtkAnimateEnded.BindUObject(this, &UUSCharacterAnim::ExitFromCastState);
+	
+	//OnAtkAnimateEnded.BindUObject(this, &UUSCharacterAnim::ExitFromCastStateOnBasicAtk);
 	
 }
 
@@ -35,7 +35,7 @@ void UUSCharacterAnim::AnimateAttack(const uint8 InCurComboNum)
 	Montage_JumpToSection(MontageSectionNames::Combo[InCurComboNum]);
 
 	//Montage_SetEndDelegate(OnAtkAnimateEnded, AnimatingCharacterWeapon->GetPlayerAttackAnim());
-
+	
 }
 
 void UUSCharacterAnim::StopAnimateAttack()
@@ -51,8 +51,8 @@ void UUSCharacterAnim::StopAnimateAttack()
 void UUSCharacterAnim::AnimateImpacted(uint8 AnimateIdx)
 {
 	Montage_Play(TakeImpactAnimMontage[AnimateIdx]);
-	if(AnimatingCharacter->HasAuthority())
-		Montage_SetEndDelegate(OnImpactMontageEnded, TakeImpactAnimMontage[AnimateIdx]);
+	//if(AnimatingCharacter->HasAuthority())
+//		Montage_SetEndDelegate(OnImpactMontageEnded, TakeImpactAnimMontage[AnimateIdx]);
 
 }
 
@@ -60,6 +60,7 @@ void UUSCharacterAnim::AnimateBlown()
 {
 	bBlownEnterTrigger = true;
 }
+
 
 void UUSCharacterAnim::AnimateSkillCast(const uint8 InSkillIndex)
 {
@@ -102,7 +103,6 @@ void UUSCharacterAnim::StopPlayingAnyMotion()
 void UUSCharacterAnim::AnimNotify_OnNextActionCastable()
 {
 	AnimatingCharacter->FinishCasting();
-
 }
 
 void UUSCharacterAnim::AnimNotify_OnEndOfEffectiveAttack()
@@ -112,22 +112,19 @@ void UUSCharacterAnim::AnimNotify_OnEndOfEffectiveAttack()
 
 void UUSCharacterAnim::AnimNotify_OnTriggerSkillEffect()
 {
-	UE_LOG(LogTemp, Log, TEXT("Trigger!"));
 	AnimatingCharacter->TriggerSkillEffect();
 }
 
 
-void UUSCharacterAnim::RecoveryCharacterFromImpacted(UAnimMontage* Montage, bool bInterrupted)
+bool UUSCharacterAnim::IsCharacterBlown() const
 {
-	if(!bInterrupted)
-	{
-		AnimatingCharacter->RecoveryFromImpactedState_Internal();
-	}
-
+	return AnimatingCharacter->IsBlown();
 }
 
-void UUSCharacterAnim::ExitFromCastState(UAnimMontage* Montage, bool bInterrupted)
+
+
+void UUSCharacterAnim::ExitFromCastStateOnBasicAtk(UAnimMontage* Montage, bool bInterrupted)
 {
-	AnimNotify_OnNextActionCastable();
+	AnimatingCharacter->RecoveryFromCast();
 	AnimNotify_OnEndOfEffectiveAttack();
 }

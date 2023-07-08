@@ -7,6 +7,8 @@
 #include "GameFramework/Actor.h"
 #include "USWeaponBase.generated.h"
 
+class USkillComponentBase;
+
 UCLASS()
 class ANDROIDPROJECT_API AUSWeaponBase : public AActor
 {
@@ -20,6 +22,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 	virtual void Tick(float DeltaTime) override;
@@ -56,8 +59,10 @@ protected:
 	UParticleSystemComponent* TrailParticleComp;
 
 	UPROPERTY(VisibleInstanceOnly, Category="WeaponBaseSetting")
-	TArray<class USkillComponentBase*> Skills;
+	TArray<USkillComponentBase*> Skills;
 
+	
+	
 public:
 	class USkillComponentBase* GetSkill(uint8 SkillIdx) const;
 	uint8 GetTotalSkillNum() const { return Skills.Num();}
@@ -74,6 +79,9 @@ public:
 
 	TObjectPtr<UAnimMontage> GetPlayerAttackAnim() const { return AttackMotionMontage; }
 
+	float GetWeaponDmg(uint8 InComboIdx){ return WeaponDmg[InComboIdx]; }
+	float GetWeaponImpact(uint8 InComboIdx){ return WeaponImpact[InComboIdx]; }
+
 	TObjectPtr<class AUSFightingCharacter> GetOwnerAUSCharacter() const;
 	
 protected:
@@ -89,9 +97,32 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "WeaponBaseSetting")
 	UParticleSystem* AttackImpactEffect;
 
+public:
+
+	float GetMaxHP() const { return MaxHP; }
+	float GetImpactThreshold() const { return ImpactThreshold; }
+	float GetBlownThreshold() const { return BlownThreshold; }
+	float GetWalkSpeed() const { return WalkSpeed; }
+
 protected:
-	TObjectPtr<class AUSFightingCharacter> OwnerAUSCharacter;	
-	uint8 ComboMaxNum;
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
+	float MaxHP;
+
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
+	float ImpactThreshold;
+
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
+	float BlownThreshold;
+
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
+	float WalkSpeed;
+
+protected:
+	TObjectPtr<class AUSFightingCharacter> OwnerAUSCharacter;
+
+	const uint8 DEFAULT_COMBO_MAX_NUM = 3;
+	UPROPERTY(EditDefaultsOnly)
+	uint8 ComboMaxNum = DEFAULT_COMBO_MAX_NUM;
 
 #pragma endregion
 
@@ -109,8 +140,15 @@ private:
 	bool bIsWeaponDmgEffective = false;
 	bool bIsWeaponImpactEffective = false;
 
-	float curWeaponDmg;
-	float curWeaponImpact;
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting")
+	TArray<float> WeaponDmg;
+	
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting")
+	TArray<float> WeaponImpact;
+
+	float curWeaponDmg, curWeaponImpact;
+
+
 
 	TSet<class AUSFightingCharacter*> AlreadyAttackedCharacters;
 public:

@@ -1,4 +1,4 @@
-C:\UnrealWorkspace\AndroidProject\Plugins\Developer\RiderLink\Source\RiderShaderInfo\RiderShaderInfo.cpp
+C:\UnrealWorkspace\USLanFighter\Plugins\Developer\RiderLink\Source\RiderShaderInfo\RiderShaderInfo.cpp
 /I .
 /I Runtime
 /I Runtime\TraceLog\Public
@@ -7,16 +7,16 @@ C:\UnrealWorkspace\AndroidProject\Plugins\Developer\RiderLink\Source\RiderShader
 /I Runtime\Json\Public
 /I Runtime\RenderCore\Public
 /I Runtime\RHI\Public
-/I C:\UnrealWorkspace\AndroidProject\Plugins\Developer\RiderLink\Source
+/I C:\UnrealWorkspace\USLanFighter\Plugins\Developer\RiderLink\Source
 /I ThirdParty\mimalloc\include
 /I "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.29.30133\INCLUDE"
 /I "C:\Program Files (x86)\Windows Kits\10\include\10.0.22000.0\ucrt"
 /I "C:\Program Files (x86)\Windows Kits\10\include\10.0.22000.0\shared"
 /I "C:\Program Files (x86)\Windows Kits\10\include\10.0.22000.0\um"
 /I "C:\Program Files (x86)\Windows Kits\10\include\10.0.22000.0\winrt"
-/FI"C:\UnrealWorkspace\AndroidProject\Plugins\Developer\RiderLink\Intermediate\Build\Win64\UnrealEditor\Development\RiderShaderInfo\Definitions.h"
-/Fo"C:\UnrealWorkspace\AndroidProject\Plugins\Developer\RiderLink\Intermediate\Build\Win64\UnrealEditor\Development\RiderShaderInfo\RiderShaderInfo.cpp.obj"
-/sourceDependencies C:\UnrealWorkspace\AndroidProject\Plugins\Developer\RiderLink\Intermediate\Build\Win64\UnrealEditor\Development\RiderShaderInfo\RiderShaderInfo.cpp.dep.json
+/FI"C:\UnrealWorkspace\USLanFighter\Plugins\Developer\RiderLink\Intermediate\Build\Win64\UnrealEditor\Development\RiderShaderInfo\Definitions.h"
+/Fo"C:\UnrealWorkspace\USLanFighter\Plugins\Developer\RiderLink\Intermediate\Build\Win64\UnrealEditor\Development\RiderShaderInfo\RiderShaderInfo.cpp.obj"
+/sourceDependencies C:\UnrealWorkspace\USLanFighter\Plugins\Developer\RiderLink\Intermediate\Build\Win64\UnrealEditor\Development\RiderShaderInfo\RiderShaderInfo.cpp.dep.json
 /Zc:inline
 /nologo
 /Oi

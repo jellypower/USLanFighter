@@ -27,6 +27,16 @@ void UThrowHandAxe::InitializeComponent()
 	UE_LOG(LogTemp, Log, TEXT("Init Axe Throwing"));
 }
 
+void UThrowHandAxe::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	if(IsValid(ProjectilePool))
+	{
+		ProjectilePool->Destroy();
+	}
+}
+
 void UThrowHandAxe::StartCast()
 {
 	UE_LOG(LogTemp, Log, TEXT("Skill Casting: Throw Hand Axe!!"));
@@ -59,7 +69,6 @@ void UThrowHandAxe::TriggerEffect()
 		OwnerUSFighter->GetActorRotation().Vector(),
 		ProjectileDmg, ProjSpeed);
 	
-	ProjectilePool = nullptr;
 }
 
 bool UThrowHandAxe::IsCasting() const
@@ -78,12 +87,10 @@ bool UThrowHandAxe::IsCastable() const
 
 void UThrowHandAxe::ReturnProjToPoolOnCollision(AProjectileBase* InProj, AUSFightingCharacter* Target)
 {
-	ProjectilePool = InProj;
 	ProjectilePool->DeactivateProjectile();
 }
 
 void UThrowHandAxe::ReturnProjToPoolOnNotCollision(AProjectileBase* InProj)
 {
-	ProjectilePool = InProj;
 	ProjectilePool->DeactivateProjectile();
 }

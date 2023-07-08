@@ -1,9 +1,10 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+	// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "USFightingCharacter.h"
 
 #include "ClearReplacementShaders.h"
 #include "USCharacterAnim.h"
+#include "BattleSystemBase/ProjectileBase.h"
 #include "Camera/CameraComponent.h"
 #include "CharacterShare/EditorNames.h"
 #include "Components/CapsuleComponent.h"
@@ -93,6 +94,7 @@ AUSFightingCharacter::AUSFightingCharacter()
 
 	// Character State Init
 	ActionStateBitMask = 0;
+
 }
 
 
@@ -118,6 +120,15 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 		{
 			PrintCharacterStateOnScreen();
 			PrintCharacterStatOnScreen();
+
+			GEngine->AddOnScreenDebugMessage(12, 10.f, FColor::Blue,
+										 FString::Printf(TEXT(
+										 	 "CharacterName: %s\n"
+											 "CurCastingSkillName: %d, %s "
+											 )
+											 ,*GetName()
+											 ,CurCastingSkill.IsValid()
+											 ,CurCastingSkill.IsValid() ? *CurCastingSkill->GetName() : TEXT("None")));
 		}
 #endif
 	}
@@ -132,7 +143,7 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 		                                                 GetCharacterMovement()->GetLastInputVector().Y,
 		                                                 GetCharacterMovement()->GetLastInputVector().Z));
 
-		SimulateStateUpdate();
+		SimulateStateUpdate(DeltaSeconds);
 
 
 		if (ServerBufferedOrder.Type == FUSOrderType::None && !GetCharacterMovement()->GetCurrentAcceleration().
@@ -184,12 +195,14 @@ void AUSFightingCharacter::BeginPlay()
 	CastChecked<UIngameCharacterInfo>(NameTagWidget->GetWidget())->SetPlayer(this);
 }
 
-void AUSFightingCharacter::BeginDestroy()
+void AUSFightingCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	Super::BeginDestroy();
-
-	CurEquippedWeapon->Destroy();
+	Super::EndPlay(EndPlayReason);
+	
+	if(IsValid(CurEquippedWeapon))
+		CurEquippedWeapon->Destroy();
 }
+
 
 void AUSFightingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -201,14 +214,18 @@ void AUSFightingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AUSFightingCharacter, ActionStateBitMask);
 	DOREPLIFETIME(AUSFightingCharacter, CurEquippedWeapon);
 	DOREPLIFETIME(AUSFightingCharacter, CurComboIdx);
-	DOREPLIFETIME(AUSFightingCharacter, ImpactTakeThreshold);
-	DOREPLIFETIME(AUSFightingCharacter, BlownTakeThreshold);
+	DOREPLIFETIME(AUSFightingCharacter, PlayerIdentityColor);
 }
 
 void AUSFightingCharacter::OnRep_CurEquippedWeapon()
 {
 	EquipWeapon();
 	UE_LOG(LogTemp, Log, TEXT("%s's cur equipped impact block num: %d"), *GetName(), AttackBlockingSkills.Num());
+}
+
+void AUSFightingCharacter::OnRep_PlayerIdentityColor()
+{
+	ApplyIdentityColor();
 }
 
 bool AUSFightingCharacter::IsExecutableOrderInOrderNotExecutableState(const FUSOrder& InOrder) const
@@ -224,8 +241,26 @@ bool AUSFightingCharacter::IsExecutableOrderInOrderNotExecutableState(const FUSO
 
 void AUSFightingCharacter::RecoveryFromImpacted()
 {
-	RecoveryFromImpactedState_Internal();
-	
+	if(HasAuthority())
+	{
+		ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Impacted;
+	}
+}
+
+void AUSFightingCharacter::RecoveryFromBlown()
+{
+	if(HasAuthority())
+	{
+		ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Blown;
+	}
+}
+
+void AUSFightingCharacter::RecoveryFromCast()
+{
+	if(HasAuthority())
+	{
+		ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Cast;
+	}
 }
 
 void AUSFightingCharacter::HandWeaponToPlayer(UClass* InWeaponClass)
@@ -240,6 +275,12 @@ void AUSFightingCharacter::HandWeaponToPlayer(UClass* InWeaponClass)
 	EquipWeapon();
 }
 
+void AUSFightingCharacter::SetPlayerIdentityColor(FColor color)
+{
+	PlayerIdentityColor = color;
+	ApplyIdentityColor();
+}
+
 void AUSFightingCharacter::EquipWeapon()
 {
 	check(CurEquippedWeapon != nullptr);
@@ -247,6 +288,10 @@ void AUSFightingCharacter::EquipWeapon()
 	CurEquippedWeapon->AttachToComponent(WeaponSocket, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	CurEquippedWeapon->SetOwner(this);
 	CurEquippedWeapon->SetInstigator(this);
+
+	GetCharacterMovement()->MaxWalkSpeed = CurEquippedWeapon->GetWalkSpeed();
+	CurHP = CurEquippedWeapon->GetMaxHP() * (CurHP/MaxHP);
+	MaxHP = CurEquippedWeapon->GetMaxHP();
 
 	for (int i = 0; i < CurEquippedWeapon->GetTotalSkillNum(); i++)
 	{
@@ -270,6 +315,17 @@ void AUSFightingCharacter::EquipWeapon()
 	CharAnim = CastChecked<UUSCharacterAnim>(GetMesh()->GetAnimInstance());
 }
 
+void AUSFightingCharacter::ApplyIdentityColor()
+{
+	if(IdentityMaterial == nullptr)
+	{
+		IdentityMaterial = GetMesh()->CreateDynamicMaterialInstance(USConsts::IDENTITY_MATERIAL_IDX);
+	}
+	UE_LOG(LogTemp, Log, TEXT("Color: %d %d %d"), PlayerIdentityColor.R, PlayerIdentityColor.G, PlayerIdentityColor.B);
+	IdentityMaterial->SetVectorParameterValue(USMaterialParamNames::Tint,
+		FLinearColor(PlayerIdentityColor.R, PlayerIdentityColor.G, PlayerIdentityColor.B));
+}
+
 
 void AUSFightingCharacter::OnJumped_Implementation()
 {
@@ -289,17 +345,16 @@ bool AUSFightingCharacter::IsMoveInputIgnored() const
 	return Super::IsMoveInputIgnored() || !IsOrderExecutableState();
 }
 
-float AUSFightingCharacter::USTakeDamage(float DamageAmount, const FVector2D& AtkDir,
-                                       AController* EventInstigator, AActor* DamageCauser)
+float AUSFightingCharacter::USTakeDamage
+(float DamageAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter ,UObject* DamageCauser, const FVector2D& AtkDir)
 {
 	if(HasAuthority())
 	{
 		for (auto AttackBlockingSkill : AttackBlockingSkills)
 		{
-			AUSFightingCharacter* DmgCausedUSCahracter = Cast<AUSFightingCharacter>(DamageCauser);
 
 			if (AttackBlockingSkill->IsTakenDmgBlockable
-				(DamageAmount, DmgCausedUSCahracter, EventInstigator, AtkDir))
+				(DamageAmount, EventInstigator, DmgCausedFighter, DamageCauser, AtkDir))
 			{
 				return 0;
 			}
@@ -313,30 +368,51 @@ float AUSFightingCharacter::USTakeDamage(float DamageAmount, const FVector2D& At
 	return DamageAmount;
 }
 
-float AUSFightingCharacter::USTakeImpact(float ImpactAmount, AController* EventInstigator, AActor* DamageCauser,
-                                       const FVector2D& AtkDir)
+float AUSFightingCharacter::USTakeImpact
+	(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir)
 {
 	if (HasAuthority())
 	{
 		for (auto ImpactBlockingSkill : AttackBlockingSkills)
 		{
-			AUSFightingCharacter* DmgCausedUSCahracter = Cast<AUSFightingCharacter>(DamageCauser);
 
-			if (ImpactBlockingSkill->IsTakenImpactBlockable
-				(ImpactAmount, DmgCausedUSCahracter, DamageCauser, AtkDir))
+			if (DmgCausedFighter != nullptr && ImpactBlockingSkill->IsTakenImpactBlockable
+				(ImpactAmount, EventInstigator, DmgCausedFighter, DamageCauser, AtkDir))
 			{
-				ImpactBlockingSkill->OnBlocked(ImpactAmount, AtkDir, DmgCausedUSCahracter, DamageCauser);
+				ImpactBlockingSkill->OnBlocked(ImpactAmount, EventInstigator, DmgCausedFighter, DamageCauser, AtkDir);
 				return 0;
 			}
 		}
 
-		if (IsCasting())
-			InterruptCastingOnServer();
+		if(ImpactAmount > USConsts::BLOWN_THRESHOLD && !IsBlown()) // If Blown possible
+		{
+			if (IsCasting())
+				InterruptCastingOnServer();
+			
+			BlownTimer = DefaultBlownEndTime;
+			
+			SetActorRotation((-FVector(AtkDir, 0)).Rotation());
 
+			LaunchCharacter(
+				USConsts::LAUNCH_COEFF
+				* ImpactAmount * FVector(AtkDir, 0.5), false, false);
+			
+			
+			AnimateBlown();
+			ActionStateBitMask = EUSPlayerActionState::Blown;
 
-		uint8 AnimateIdx = FMath::RandRange(0, CharAnim->GetTakeImpactAnimNum() - 1);
-		AnimateImpacted(AnimateIdx);
-		ActionStateBitMask = EUSPlayerActionState::Impacted;
+		}
+		else if(ImpactAmount > 0) // If Impact possible
+		{
+			if (IsCasting())
+				InterruptCastingOnServer();
+
+			uint8 AnimateIdx = FMath::RandRange(0, CharAnim->GetTakeImpactAnimNum() - 1);
+			AnimateImpacted(AnimateIdx);
+			ImpactTimer = DefaultImpactTime;
+			ActionStateBitMask = EUSPlayerActionState::Impacted;
+
+		}
 	}
 
 	return ImpactAmount;
@@ -413,26 +489,40 @@ void AUSFightingCharacter::ExecuteOrderOnServer(const FUSOrder& InOrder)
 	case FUSOrderType::Skill1:
 		SkillIdx = 0;
 		SkillToCast = CurEquippedWeapon->GetSkill(SkillIdx);
-		if (SkillToCast->IsCastable()) ExecuteSkillOnServer(SkillIdx, FVector2D(InOrder.dir.X, InOrder.dir.Y));
+		if (SkillToCast->IsCastable()) ExecuteSkillOnServer(SkillIdx, FVector2D(InOrder.dir));
 		break;
 	case FUSOrderType::Skill2:
 		SkillIdx = 1;
 		SkillToCast = CurEquippedWeapon->GetSkill(SkillIdx);
-		if (SkillToCast->IsCastable()) ExecuteSkillOnServer(SkillIdx, FVector2D(InOrder.dir.X, InOrder.dir.Y));
+		if (SkillToCast->IsCastable()) ExecuteSkillOnServer(SkillIdx, FVector2D(InOrder.dir));
 		break;
 	}
 }
 
-void AUSFightingCharacter::SimulateStateUpdate()
+void AUSFightingCharacter::SimulateStateUpdate(float DeltaTime)
 {
 	if (!GetCharacterMovement()->IsFalling() && IsJumping() || !IsJumping())
 		ActionStateBitMask = ActionStateBitMask & (~EUSPlayerActionState::Jump);
-
 
 	if (GetCharacterMovement()->IsMovingOnGround())
 		ActionStateBitMask = ActionStateBitMask | EUSPlayerActionState::Move;
 	else
 		ActionStateBitMask = ActionStateBitMask & (~EUSPlayerActionState::Move);
+
+	if(ImpactTimer > 0)
+		ImpactTimer -= DeltaTime;
+		
+	if(BlownTimer > 0 && !GetCharacterMovement()->IsFalling())
+		BlownTimer -= DeltaTime;
+
+	if(IsImpacted() && ImpactTimer <= 0)
+	{
+		RecoveryFromImpacted();
+	}
+	if(IsBlown() && BlownTimer <= 0)
+	{
+		RecoveryFromBlown();
+	}
 }
 
 
@@ -473,20 +563,19 @@ void AUSFightingCharacter::ExecuteAttackOnServer(const FVector2D& Dir)
 	FVector Dir3D = FVector(Dir, 0);
 	if (!Dir3D.IsNearlyZero())
 		SetActorRotation(Dir3D.Rotation());
-
-	CurEquippedWeapon->StartAttack(10); // TODO: 무기 데미지 설정하기
-
+	
 	if (CharAnim->IsAttackMotionPlaying() && CurComboIdx < CurEquippedWeapon->GetComboMaxNum() - 1)
 		CurComboIdx++;
 	else
-	{
 		CurComboIdx = 0;
-	}
 
-	// TODO: 공격 끝나면 Attack State 풀어주는거 잊지 말기.
-	// TODO: Start Attack 과 End Attack만들어서 Weapon에 공격 관련 충돌체크 활성화/비활성화 해주기.
 	checkf(CurComboIdx < CurEquippedWeapon->GetComboMaxNum(),
-	       TEXT("Cur combo idx must be lower than MaxCombo"));
+		   TEXT("Cur combo idx must be lower than MaxCombo"));
+	
+	CurEquippedWeapon->StartAttack(
+	CurEquippedWeapon->GetWeaponDmg(CurComboIdx),
+	CurEquippedWeapon->GetWeaponImpact(CurComboIdx));
+
 	AnimateAttack(CurComboIdx);
 }
 
@@ -498,6 +587,8 @@ void AUSFightingCharacter::ExecuteSkillOnServer(uint8 skillIdx, const FVector2D&
 		UE_LOG(LogTemp, Warning, TEXT("Skill is not allocated"));
 		return;
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("ExecuteSkill"));
 
 #endif
 	StartCastProcessOnServer();
@@ -525,7 +616,7 @@ void AUSFightingCharacter::TriggerSkillEffect()
 	if (HasAuthority())
 	{
 		checkf(CurCastingSkill.IsValid(), TEXT("To trigger skill, Cur Casting Skill must be valid"));
-
+		
 		CurCastingSkill->TriggerEffect();
 	}
 }
@@ -546,7 +637,7 @@ void AUSFightingCharacter::EndCastProcessOnServer(bool bIsInterrupt)
 	{
 		if (bIsInterrupt) CurCastingSkill->InterruptCast();
 		else CurCastingSkill->FinishCast();
-
+		UE_LOG(LogTemp, Log, TEXT("Interrupted: %d"), (int)bIsInterrupt);
 		CurCastingSkill = nullptr;
 	}
 }
@@ -579,4 +670,10 @@ void AUSFightingCharacter::AnimateImpacted_Implementation(uint8 AnimateIdx)
 {
 	if (!IsValid(GetCurEquippedWeapon())) return;
 	CharAnim->AnimateImpacted(AnimateIdx);
+}
+
+void AUSFightingCharacter::AnimateBlown_Implementation()
+{
+	if (!IsValid(GetCurEquippedWeapon())) return;
+		CharAnim->AnimateBlown();
 }

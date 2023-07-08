@@ -16,7 +16,7 @@ class ANDROIDPROJECT_API UThrowHandAxe : public USkillComponentBase
 	GENERATED_BODY()
 public:
 	virtual void InitializeComponent() override;
-	
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 	virtual void StartCast() override;

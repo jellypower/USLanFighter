@@ -31,8 +31,6 @@ void UWhirlwind::InterruptCast()
 
 void UWhirlwind::TriggerEffect()
 {
-	SwingCount++;
-
 	TArray<FOverlapResult> OutOverlaps;
 
 	FVector DmgAreaCenter = OwnerUSFighter->GetActorLocation();
@@ -58,12 +56,15 @@ void UWhirlwind::TriggerEffect()
 
 			CastAttackHitEffect(EffectLocation, AtkDir.Rotation());
 
-			Target->USTakeDamage(SwingDmg[SwingCount], FVector2D(AtkDir), GetOwner()->GetInstigatorController(), OwnerUSFighter);
-			Target->USTakeImpact(SwingImpact[SwingCount], GetOwner()->GetInstigatorController(), OwnerUSFighter,
+			Target->USTakeDamage(SwingDmg[SwingCount],  GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
+			Target->USTakeImpact(SwingImpact[SwingCount], GetOwner()->GetInstigatorController(), OwnerUSFighter, this,
 			                   FVector2D(AtkDir));
 
 		}
 	}
+	
+	SwingCount++;
+
 
 #ifdef ENABLE_DRAW_DEBUG
 

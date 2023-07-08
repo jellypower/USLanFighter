@@ -40,20 +40,20 @@ bool UDodging::IsCasting() const
 	return bIsCasting;
 }
 
-bool UDodging::IsTakenImpactBlockable(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter,
-	AActor* DamageCauser, const FVector2D& AtkDir) const
+bool UDodging::IsTakenImpactBlockable
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const
 {
 	return bIsCasting;
 }
 
-bool UDodging::IsTakenDmgBlockable(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser,
-	const FVector2D& AtkDir) const
+bool UDodging::IsTakenDmgBlockable
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const
 {
 	return bIsCasting;
 }
 
-void UDodging::OnBlocked(float TakenImpact, const FVector2D& TakenImpactDir, AUSFightingCharacter* DmgCausedCharacter,
-	AActor* DamageCauser)
+void UDodging::OnBlocked
+		(float TakenImpact, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir)
 {
 	// Do nothing
 }

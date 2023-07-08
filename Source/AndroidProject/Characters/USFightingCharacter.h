@@ -8,6 +8,7 @@
 #include "CharacterShare/EUSPlayerActionState.h"
 #include "CharacterShare/USOrder.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "UObject/WeakInterfacePtr.h"
 #include "Weapons/USWeaponBase.h"
 
 #include "USFightingCharacter.generated.h"
@@ -31,7 +32,9 @@ public:
 	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 
-	virtual void BeginDestroy() override;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -75,11 +78,12 @@ public:
 	virtual bool CanJumpInternal_Implementation() const override;
 
 	virtual bool IsMoveInputIgnored() const override;
-	
+
+	UFUNCTION()
 	float USTakeDamage
-		(float DamageAmount, const FVector2D& AtkDir, AController* EventInstigator, AActor* DamageCauser);
+		(float DamageAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter ,UObject* DamageCauser, const FVector2D& AtkDir);
 	float USTakeImpact
-		(float ImpactAmount, AController* EventInstigator, AActor* DamageCauser, const FVector2D& AtkDir);
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir);
 
 	void OrderTo(FUSOrder InOrder);
 
@@ -124,6 +128,9 @@ private:
 	UFUNCTION(NetMulticast, Reliable)
 	void AnimateImpacted(uint8 AnimateIdx);
 
+	UFUNCTION(NetMulticast, Reliable)
+	void AnimateBlown();
+
 	/** Judging must always take place in server  */
 	void EndCastProcessOnServer(bool bIsInterrupt);
 
@@ -138,7 +145,7 @@ private:
 	 * 
 	 * This function is for the adjust. Basic state update must be occured with character's action.
 	 */
-	void SimulateStateUpdate();
+	void SimulateStateUpdate(float DeltaTime);
 
 #pragma endregion
 
@@ -159,28 +166,22 @@ protected:
 	UPROPERTY(EditAnywhere, Replicated)
 	float MaxHP;
 
-	UPROPERTY(EditAnywhere, Replicated)
-	float ImpactTakeThreshold;
-
-	UPROPERTY(EditAnywhere, Replicated)
-	float BlownTakeThreshold;
 
 public:
 	FString GetCharacterName() const { return CharacterName; }
 	void SetCharacterName(const FString& name) { this->CharacterName = name; }
 
-	/**
-	 * This function must be called by Server
-	 */
+	/** This function must be called by Server */
 	void HandWeaponToPlayer(UClass* InWeaponClass);
 
+	/** This function must be called by server */
+	void SetPlayerIdentityColor(FColor color);
 
 	float GetMaxHP() const { return MaxHP; }
-	float GetImpactTakeThreshold() const { return ImpactTakeThreshold; }
-	float GetBlownTakeThreshold() const { return BlownTakeThreshold; }
 
 protected:
 	void EquipWeapon();
+	void ApplyIdentityColor();
 
 #pragma endregion
 
@@ -191,12 +192,21 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_CurEquippedWeapon)
 	AUSWeaponBase* CurEquippedWeapon = nullptr;
 
+	UPROPERTY(ReplicatedUsing=OnRep_PlayerIdentityColor)
+	FColor PlayerIdentityColor;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* IdentityMaterial;
+
 	UFUNCTION()
 	void OnRep_CurEquippedWeapon();
 
+	UFUNCTION()
+	void OnRep_PlayerIdentityColor();
 	
-	TArray<IUSAttackBlockable*> AttackBlockingSkills;
-
+	TArray<TWeakInterfacePtr<IUSAttackBlockable>> AttackBlockingSkills;
+	
+	
 	UPROPERTY()
 	class UUSCharacterAnim* CharAnim;
 
@@ -213,6 +223,18 @@ private:
 	UPROPERTY(Replicated, VisibleInstanceOnly,
 		Meta = (Bitmask, BitmaskEnum = "EUSPlayerActionState"), Category = "Player State")
 	uint32 ActionStateBitMask = 0;
+
+	UPROPERTY(EditDefaultsOnly)
+	float DefaultImpactTime = 0.67f;
+
+	UPROPERTY(VisibleInstanceOnly)
+	float ImpactTimer = 0;
+
+	UPROPERTY(EditDefaultsOnly)
+	float DefaultBlownEndTime = 1 + 0.43;
+
+	UPROPERTY(VisibleInstanceOnly)
+	float BlownTimer = 0;
 
 public:
 	uint8 IsOrderExecutableState() const
@@ -285,17 +307,10 @@ public:
 		return (ActionStateBitMask & EUSPlayerActionState::Blown);
 	}
 
-	void RecoveryFromImpactedState_Internal()
-	{
-		if(HasAuthority())
-		{
-			UE_LOG(LogTemp, Log, TEXT("Recovery Implementation"));
-			ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Impacted;
-		}
-	}
 
 	void RecoveryFromImpacted();
 	void RecoveryFromBlown();
+	void RecoveryFromCast();
 
 
 	float GetCurHP() const { return CurHP; }
@@ -313,10 +328,13 @@ private
 		GEngine->AddOnScreenDebugMessage(11, 10.f, FColor::Blue,
 		                                 FString::Printf(TEXT(
 			                                 "OrderAcceptable: %d\n Move: %d\n Jump: %d\n IsAttacking: %d\n "
-			                                 "IsImpacted: %d\n IsMoveInputIgnored: %d"),
+			                                 "IsImpacted: %d\n IsBlown: %d\n IsInAir: %d\n IsMoveInputIgnored: %d, "
+											 ),
 		                                                 IsOrderExecutableState(), IsMoving(), IsJumping(),
 		                                                 IsCasting(),
 		                                                 IsImpacted(),
+		                                                 IsBlown(),
+		                                                 GetCharacterMovement()->IsFalling(),
 		                                                 IsMoveInputIgnored()
 		                                                 ));
 	}

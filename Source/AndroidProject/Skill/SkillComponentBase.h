@@ -18,6 +18,7 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	virtual void BeginDestroy() override;
 	
 public:
 	virtual void StartCast() PURE_VIRTUAL(USkillComponentBase::StartCast);

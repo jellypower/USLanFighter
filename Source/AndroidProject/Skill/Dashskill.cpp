@@ -20,11 +20,12 @@ void UDashskill::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 	{
 		TArray<FOverlapResult> OutOverlaps;
 
-		
+		//OwnerUSFighter->GetCharacterMovement()->add
+
 		GetWorld()->OverlapMultiByProfile(
 			OutOverlaps,
 			DmgBoxCenter,
-			FQuat(1,0,0,0),
+			OwnerUSFighter->GetActorRotation().Quaternion(),
 			CollisionName::Attack,
 			FCollisionShape::MakeBox(DmgBoxSize));
 
@@ -41,8 +42,8 @@ void UDashskill::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 
 				CastAttackHitEffect(EffectLocation, AtkDir.Rotation());
 				
-				Target->USTakeDamage(SkillDmg, FVector2D(AtkDir), GetOwner()->GetInstigatorController(), OwnerUSFighter);
-				Target->USTakeImpact(SkillImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter,FVector2D(AtkDir));
+				Target->USTakeDamage(SkillDmg, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
+				Target->USTakeImpact(SkillImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
 				AlreadyAttackedCharacters.Add(Target);
 
 				UE_LOG(LogTemp, Log, TEXT("%s"), *GetOwner()->GetName());
@@ -56,6 +57,7 @@ void UDashskill::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 			GetWorld(),
 			DmgBoxCenter,
 			DmgBoxSize,
+			OwnerUSFighter->GetActorRotation().Quaternion(),
 			FColor::Green,
 			false
 			);
@@ -69,11 +71,15 @@ void UDashskill::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 void UDashskill::StartCast()
 {
 	SetCooldown();
+	OwnerWeapon->StartSlashEffects();
+	bIsDashEffective = true;
+
 }
 
 void UDashskill::FinishCast()
 {
 	AlreadyAttackedCharacters.Empty();
+	OwnerWeapon->EndSlashEffect();
 	bIsDashEffective = false;
 }
 
@@ -85,7 +91,7 @@ void UDashskill::InterruptCast()
 
 void UDashskill::TriggerEffect()
 {
-	bIsDashEffective = true;
+	// Do nothing
 }
 
 bool UDashskill::IsCasting() const

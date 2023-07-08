@@ -37,6 +37,10 @@ AUSWeaponBase::AUSWeaponBase()
 	TrailParticleComp->SetupAttachment(WeaponMeshComp);
 	TrailParticleComp->SetIsReplicated(true);
 
+	WeaponDmg.SetNum(DEFAULT_COMBO_MAX_NUM);
+	WeaponDmg.SetNumZeroed(DEFAULT_COMBO_MAX_NUM);
+	WeaponImpact.SetNum(DEFAULT_COMBO_MAX_NUM);
+	WeaponImpact.SetNum(DEFAULT_COMBO_MAX_NUM);
 
 	AlreadyAttackedCharacters.Empty();
 }
@@ -44,9 +48,6 @@ AUSWeaponBase::AUSWeaponBase()
 void AUSWeaponBase::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-
-	if(IsValid(AttackMotionMontage))
-		ComboMaxNum = AttackMotionMontage->GetNumSections();
 	
 	TArray<USkillComponentBase*> Comps;
 	GetComponents<USkillComponentBase>(Comps);
@@ -69,6 +70,23 @@ void AUSWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	UE_LOG(LogTemp, Log, TEXT("%d %d %d %d"),
+		ComboMaxNum, WeaponDmg.Num(), WeaponImpact.Num(), AttackMotionMontage->GetNumSections());
+	
+	ensure(ComboMaxNum == WeaponDmg.Num() &&
+		WeaponDmg.Num() == WeaponImpact.Num() &&
+		WeaponImpact.Num() == AttackMotionMontage->GetNumSections());
+
+}
+
+void AUSWeaponBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	for(auto Skill: Skills)
+	{
+		Skill->DestroyComponent(false);
+	}
 }
 
 // Called every frame
@@ -87,35 +105,34 @@ void AUSWeaponBase::NotifyActorBeginOverlap(AActor* OtherActor)
 
 		AlreadyAttackedCharacters.Add(OtherUsFightingCharacter);
 
-		if (bIsWeaponDmgEffective || bIsWeaponImpactEffective)
-		{
-			//struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params
-
-
-			constexpr float EFFECT_CAST_BIAS = 50;
-
-			const FVector atkDir = (WeaponDmgBoxComp->GetComponentLocation() - OtherActor->GetActorLocation()).
-				GetSafeNormal();
-			const FVector spawnLocation = OtherActor->GetActorLocation()
-				+ atkDir * EFFECT_CAST_BIAS;
-
-			const FRotator spawnRotate = atkDir.Rotation();
-
-
-			CastAttackHitEffect(spawnLocation, spawnRotate);
-		}
-
-		const FVector2D AtkDir = FVector2d(OtherActor->GetActorLocation() - Owner->GetActorLocation()); 
+		const FVector2D AtkDir = FVector2d(OtherActor->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal(); 
 
 		if (bIsWeaponDmgEffective)
 		{
 			FDamageEvent DmgEvent;
-			OtherUsFightingCharacter->USTakeDamage(curWeaponDmg, AtkDir, GetOwner()->GetInstigatorController(), OwnerAUSCharacter);
+			float ActuallyTakenDmg =
+				OtherUsFightingCharacter->USTakeDamage
+					(curWeaponDmg, GetOwner()->GetInstigatorController(), OwnerAUSCharacter, this, AtkDir);
+
+
+			if(ActuallyTakenDmg > 0)
+			{
+				constexpr float EFFECT_CAST_BIAS = 50;
+
+				const FVector atkDir = (WeaponDmgBoxComp->GetComponentLocation() - OtherActor->GetActorLocation()).
+					GetSafeNormal();
+				const FVector spawnLocation = OtherActor->GetActorLocation()
+					+ atkDir * EFFECT_CAST_BIAS;
+
+				const FRotator spawnRotate = atkDir.Rotation();
+				
+				CastAttackHitEffect(spawnLocation, spawnRotate);
+			}
 		}
 
 		if (bIsWeaponImpactEffective)
 		{
-			OtherUsFightingCharacter->USTakeImpact(curWeaponImpact, GetOwner()->GetInstigatorController(), OwnerAUSCharacter
+			OtherUsFightingCharacter->USTakeImpact(curWeaponImpact, GetOwner()->GetInstigatorController(), OwnerAUSCharacter, this
 			                                     , AtkDir);
 		}
 	}
@@ -155,9 +172,6 @@ void AUSWeaponBase::CastAttackHitEffect_Implementation(FVector_NetQuantize100 sp
 
 USkillComponentBase* AUSWeaponBase::GetSkill(uint8 SkillIdx) const
 {
-#if defined(UE_BUILD_DEBUG) || defined(UE_BUILD_DEVELOPMENT)
-	if(!Skills.IsValidIndex(SkillIdx)) return nullptr;
-#endif
 	
 	return Skills[SkillIdx];
 }
@@ -172,7 +186,7 @@ TObjectPtr<AUSFightingCharacter> AUSWeaponBase::GetOwnerAUSCharacter() const
 	return OwnerAUSCharacter;
 }
 
-void AUSWeaponBase::StartAttack(float InDmg, float InImpact)
+void AUSWeaponBase::StartAttack(float InDmg, float InImpact /* =0 */)
 {
 	StartGivingDmg(InDmg);
 	StartGivingImpact(InImpact);

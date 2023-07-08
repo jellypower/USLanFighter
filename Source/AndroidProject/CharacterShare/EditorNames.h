@@ -13,6 +13,11 @@ namespace USSocketNames
 	const static FName Weapon_Socket_slash_end = FName("Slash_End");
 }
 
+namespace USMaterialParamNames
+{
+	const static FName Tint=FName("Tint");
+}
+
 
 namespace CollisionName
 {
@@ -26,6 +31,25 @@ namespace USCollisionChannel
 	constexpr static ECollisionChannel DmgBoxChannel = ECollisionChannel::ECC_GameTraceChannel2;
 }
 
+namespace USConsts
+{
+	constexpr float LAUNCH_COEFF = 50.f;
+	constexpr float BLOWN_THRESHOLD = 1.f + FLT_EPSILON;
+
+	constexpr uint8 IDENTITY_MATERIAL_IDX = 1;
+}
+
+namespace PlayerIdentityColorRange
+{
+	const static FColor Colors[5]
+	{
+		FColor(1,0,0),
+		FColor(0,1,0),
+		FColor(0,0,1),
+		FColor(0,0,0),
+		FColor(1,1,1)
+	};
+}
 
 namespace MontageSectionNames
 {

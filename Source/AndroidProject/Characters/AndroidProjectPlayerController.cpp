@@ -35,7 +35,7 @@ void AAndroidProjectPlayerController::BeginPlay()
 	//GEngine->AddOnScreenDebugMessage(10, 10.f, FColor::Red, LogMessage);
 
 	UE_LOG(LogTemp, Log, TEXT("loca: %d, remote: %d"), GetLocalRole(), GetRemoteRole());
-
+	
 	// UI Setting
 	if (IsLocalController())
 	{
@@ -122,7 +122,6 @@ void AAndroidProjectPlayerController::OnInputMove(const FInputActionValue& val)
 void AAndroidProjectPlayerController::OffInputMove(const FInputActionValue& val)
 {
 	CurInputDir = FVector2d::Zero();
-	UE_LOG(LogTemp, Log, TEXT("%f %f"), GetCurInputDir().X, GetCurInputDir().Y);
 }
 
 void AAndroidProjectPlayerController::OnInputJump(const FInputActionValue& val)
@@ -132,15 +131,12 @@ void AAndroidProjectPlayerController::OnInputJump(const FInputActionValue& val)
 
 void AAndroidProjectPlayerController::OnInputSkill1(const FInputActionValue& val)
 {
-	UE_LOG(LogTemp, Log, TEXT("Skill1"));
 	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Skill1, GetCurInputDir()));
 }
 
 void AAndroidProjectPlayerController::OnInputSkill2(const FInputActionValue& val)
 {
-	UE_LOG(LogTemp, Log, TEXT("Skill2"));
 	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Skill2, GetCurInputDir()));
-
 }
 
 void AAndroidProjectPlayerController::OnInputAttack(const FInputActionValue& val)

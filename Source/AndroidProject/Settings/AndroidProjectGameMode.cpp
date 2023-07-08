@@ -9,6 +9,7 @@
 
 #include "WeaponList.h"
 #include "LoginManagerComponent.h"
+#include "CharacterShare/EditorNames.h"
 
 
 AAndroidProjectGameMode::AAndroidProjectGameMode()
@@ -57,16 +58,25 @@ void AAndroidProjectGameMode::PostLogin(APlayerController* NewPlayer)
 	{
 		Cast<AUSFightingCharacter>(NewPlayer->GetCharacter())
 			->HandWeaponToPlayer(AvailableWeaponList->GetWeaponClassWithName(TEXT("LongSword")));
+
+		Cast<AUSFightingCharacter>(NewPlayer->GetCharacter())->SetPlayerIdentityColor(
+			PlayerIdentityColorRange::Colors[0]);
 	}
 	else if(PlayerCount % 3 == 1)
 	{
 		Cast<AUSFightingCharacter>(NewPlayer->GetCharacter())
 	->HandWeaponToPlayer(AvailableWeaponList->GetWeaponClassWithName(TEXT("GreateAxe")));
+
+		Cast<AUSFightingCharacter>(NewPlayer->GetCharacter())->SetPlayerIdentityColor(
+		PlayerIdentityColorRange::Colors[1]);
 	}
 	else if(PlayerCount % 3 == 2)
 	{
 		Cast<AUSFightingCharacter>(NewPlayer->GetCharacter())
 	->HandWeaponToPlayer(AvailableWeaponList->GetWeaponClassWithName(TEXT("OneHandAxeWithShield")));
+
+		Cast<AUSFightingCharacter>(NewPlayer->GetCharacter())->SetPlayerIdentityColor(
+		PlayerIdentityColorRange::Colors[2]);
 	}
 	PlayerCount++;
 

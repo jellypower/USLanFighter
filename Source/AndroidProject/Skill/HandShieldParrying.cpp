@@ -3,6 +3,7 @@
 
 #include "Skill/HandShieldParrying.h"
 
+#include "BattleSystemBase/ProjectileBase.h"
 #include "Characters/USFightingCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -39,7 +40,7 @@ bool UHandShieldParrying::IsCasting() const
 }
 
 bool UHandShieldParrying::IsTakenImpactBlockable
-	(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser, const FVector2D& AtkDir) const
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const
 {
 
 	const FVector2D PlayerForward = FVector2D(OwnerUSFighter->GetActorForwardVector().GetSafeNormal());
@@ -53,26 +54,31 @@ bool UHandShieldParrying::IsTakenImpactBlockable
 }
 
 bool UHandShieldParrying::IsTakenDmgBlockable
-	(float ImpactAmount, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser, const FVector2D& AtkDir) const
+		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir) const
 {
-	return IsTakenImpactBlockable(ImpactAmount, DmgCausedCharacter, DamageCauser, AtkDir);
+	return IsTakenImpactBlockable(ImpactAmount, DmgCausedFighter->GetInstigatorController(),DmgCausedFighter, DamageCauser, AtkDir);
 }
 
 void UHandShieldParrying::OnBlocked
-	(float TakenImpact, const FVector2D& TakenImpactDir, AUSFightingCharacter* DmgCausedCharacter, AActor* DamageCauser)
+		(float TakenImpact, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir)
 {
-	const FVector ImpactDir = (DmgCausedCharacter->GetActorLocation() - OwnerUSFighter->GetActorLocation())
+	if(Cast<AProjectileBase>(DamageCauser))
+	{
+		return;
+	}
+	
+	const FVector ImpactDir = (DmgCausedFighter->GetActorLocation() - OwnerUSFighter->GetActorLocation())
 		.GetSafeNormal();
 	
 	constexpr float EFFECT_CAST_BIAS = 50.f;
-	const FVector EffectLocation = DmgCausedCharacter->GetActorLocation() - ImpactDir * EFFECT_CAST_BIAS;
+	const FVector EffectLocation = OwnerUSFighter->GetActorLocation() + ImpactDir * EFFECT_CAST_BIAS;
 
 	CastBlockEffect(EffectLocation, ImpactDir.Rotation());
 	
-	DmgCausedCharacter->USTakeImpact(TakenImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter,
+	DmgCausedFighter->USTakeImpact(TakenImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, 
 		FVector2D(ImpactDir));
 
-	UE_LOG(LogTemp, Log, TEXT("%s took impact"), *DmgCausedCharacter->GetName());
+	UE_LOG(LogTemp, Log, TEXT("%s took impact"), *DmgCausedFighter->GetName());
 }
 
 void UHandShieldParrying::CastBlockEffect_Implementation(FVector_NetQuantize100 spawnLocation, FRotator spawnRotate)

@@ -86,6 +86,11 @@ void AProjectileBase::SetOwner(AActor* NewOwner)
 	OwnerFighter = NewOwner != nullptr ? CastChecked<AUSFightingCharacter>(NewOwner) : nullptr;
 }
 
+AUSFightingCharacter* AProjectileBase::GetOwnerUsFighter() const
+{
+	return OwnerFighter.Get();
+}
+
 
 void AProjectileBase::DeactivateProjectile()
 {
@@ -113,16 +118,17 @@ void AProjectileBase::OnProjCollision(AUSFightingCharacter* Target)
 {
 	FDamageEvent DmgEvent;
 
-	FVector AtkDir = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-	FVector2D AtkDir2D = FVector2D(AtkDir.X, AtkDir.Y);
+	FVector AtkDir = ProjMovementComp->Velocity.GetSafeNormal();
 
 	constexpr float EFFECT_CAST_COEFF = 50.f;
 	FVector CollisionPos = Target->GetActorLocation() - AtkDir * EFFECT_CAST_COEFF;
 
-	Target->USTakeDamage(ProjectileDmg, AtkDir2D, GetInstigatorController(), OwnerFighter.Get());
-	Target->USTakeImpact(ProjectileDmg, GetInstigatorController(), OwnerFighter.Get(), AtkDir2D);
+	const float ActuallyTakenDmg =
+		Target->USTakeDamage(ProjectileDmg, GetInstigatorController(), OwnerFighter.Get(), this, FVector2D(AtkDir));
+	Target->USTakeImpact(ProjectileDmg, GetInstigatorController(), OwnerFighter.Get(), this, FVector2D(AtkDir));
 
-	CastAttackHitEffect(CollisionPos, AtkDir.Rotation());
+	if(ActuallyTakenDmg > 0)
+		CastAttackHitEffect(CollisionPos, AtkDir.Rotation());
 
 	OnProjCollideToTarget.Broadcast(this, Target);
 }
