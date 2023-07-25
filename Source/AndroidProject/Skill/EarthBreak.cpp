@@ -55,8 +55,8 @@ void UEarthBreak::TriggerEffect()
 			FVector AtkDir = Target->GetActorLocation() - DmgAreaCenter;
 			AtkDir.Normalize();
 
-			Target->USTakeDamage(BreakDmg,  GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
 			Target->USTakeImpact(BreakImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter, this , FVector2D(FVector::UpVector));
+			Target->USTakeDamage(BreakDmg,  GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
 		}
 	}
 

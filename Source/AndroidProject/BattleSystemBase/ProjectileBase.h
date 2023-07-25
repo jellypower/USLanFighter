@@ -31,7 +31,7 @@ public:
 	AUSFightingCharacter* GetOwnerUsFighter() const;
 
 	virtual void DeactivateProjectile();
-	virtual void ActivateProjectile(FVector SpawnPos, FVector CastDir, float Dmg, float Speed);
+	virtual void ActivateProjectile(FVector SpawnPos, FVector CastDir, float Dmg, float Impact, float Speed);
 
 	virtual void OnProjCollision(class AUSFightingCharacter* Target);
 

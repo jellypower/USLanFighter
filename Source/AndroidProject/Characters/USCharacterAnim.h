@@ -38,7 +38,7 @@ protected:
 	class AUSFightingCharacter* AnimatingCharacter;
 
 	UPROPERTY(BlueprintReadOnly)
-	class AUSWeaponBase* AnimatingCharacterWeapon;
+	TWeakObjectPtr<class AUSWeaponBase> AnimatingCharacterWeapon;
 
 	UPROPERTY(EditDefaultsOnly)
 	TArray<UAnimMontage*> TakeImpactAnimMontage;
@@ -51,6 +51,9 @@ protected:
 	
 	UFUNCTION(BlueprintPure)
 	bool IsCharacterBlown() const;
+
+	UFUNCTION(BlueprintPure)
+	bool IsCharacterDeath() const;
 	
 	UFUNCTION()
 	void ExitFromCastStateOnBasicAtk(UAnimMontage* Montage, bool bInterrupted);

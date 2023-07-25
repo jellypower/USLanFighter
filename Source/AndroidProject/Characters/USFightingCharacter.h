@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
 #include "USCharacterAnim.h"
 #include "GameFramework/Character.h"
 #include "CharacterShare/EUSPlayerActionState.h"
@@ -10,12 +11,26 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "UObject/WeakInterfacePtr.h"
 #include "Weapons/USWeaponBase.h"
+#include "CharacterShare/ShareEnums.h"
 
 #include "USFightingCharacter.generated.h"
 
 
 class IUSAttackBlockable;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCastNotCastableSkill, bool, CastState, FString, SkillName);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnPlayerDied, AUSFightingCharacter*, Character, ECauseOfDeath, InCauseOfDeath, float, RecallTime);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerRecall, AUSFightingCharacter*, Character);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerDeactivated, AUSFightingCharacter*, Character);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerActivated, AUSFightingCharacter*, Character);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerDestroyed, AUSFightingCharacter*, InUSFighter);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnIdentityColorApply, FColor, InColor);
+
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerEquipWeapon, AUSWeaponBase*, Weapon);
 
 UCLASS(Blueprintable)
 class AUSFightingCharacter : public ACharacter
@@ -81,10 +96,23 @@ public:
 
 	UFUNCTION()
 	float USTakeDamage
-		(float DamageAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter ,UObject* DamageCauser, const FVector2D& AtkDir);
+		(const float DamageAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter ,UObject* DamageCauser, const FVector2D& AtkDir);
 	float USTakeImpact
-		(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir);
+		(const float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir);
 
+	void EnterInvincible(float InTime);
+
+	UFUNCTION(BlueprintCallable)
+	bool USIsDied();
+
+	UFUNCTION(BlueprintCallable)
+	void USKillPlayerOnServer(ECauseOfDeath InCauseOfDeath, float RecallTime);
+	
+	UFUNCTION(BlueprintCallable)
+	void USRecallPlayerOnServer(AActor* RecallSpot,float InInvincibleTime);
+
+
+	
 	void OrderTo(FUSOrder InOrder);
 
 
@@ -94,7 +122,18 @@ public:
 
 	void InterruptCastingOnServer();
 
-	FOnCastNotCastableSkill OnCastNotCastableSkillOnClient;
+	mutable FOnCastNotCastableSkill OnCastNotCastableSkillOnClient;
+
+	mutable FOnPlayerDied OnPlayerDiedOnServer;
+	mutable FOnPlayerRecall OnPlayerRecallOnServer;
+
+	mutable FOnPlayerActivated OnPlayerActivated;
+	mutable FOnPlayerDeactivated OnPlayerDeactivated;
+	mutable FOnPlayerDestroyed OnPlayerDestroyed;
+
+	mutable FOnPlayerEquipWeapon OnEquipWeapon;
+
+	mutable FOnIdentityColorApply OnIdentityColorApply;
 	
 protected:
 	/** Use only local*/
@@ -106,15 +145,27 @@ protected:
 	FUSOrder ServerBufferedOrder;
 
 private:
+
+
+	UFUNCTION(NetMulticast, Reliable)
+	void USDeactivatePlayer(bool bHiddenPlayer, bool bFixLocation = false);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void USReActivatePlayer();
+
+	
 	UFUNCTION(Server, Reliable)
 	void SendOrderToServer_Internal_Reliable(FUSOrder InOrder);
 
 	void StartCastProcessOnServer();
-	void ExecuteAttackOnServer(const FVector2D& Dir);
-	void ExecuteSkillOnServer(uint8 skillIdx,const FVector2D& Dir);
+	void ExecuteAttackOnServer(const FVector2D& InDir);
+	void ExecuteSkillOnServer(uint8 skillIdx,const FVector2D& InDir);
+
+	AUSFightingCharacter* DetectClosestTargetRadiusBase(float Radius) const;
+	AUSFightingCharacter* DetectClosestTargetRadiusDegreeBase(FVector2D NormalizedAtkDir ,float Radius, float ThresholdDegree) const;
 
 	UFUNCTION(NetMulticast, Reliable)
-	void AnimateAttack(const uint8 InCurComboNum);
+	void AnimateAttack(const uint8 InCurComboNum, FVector_NetQuantizeNormal CastDir);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void StopAnimateAttack();
@@ -123,13 +174,16 @@ private:
 	void StopAnimateAnyMotion();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void AnimateSkillCasting(uint8 skillIdx);
+	void AnimateSkillCasting(uint8 skillIdx, FVector_NetQuantizeNormal CastDir);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void AnimateImpacted(uint8 AnimateIdx);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void AnimateBlown();
+	void AnimateBlown(FVector_NetQuantizeNormal CastDir);
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void CastDoubleJumpEffect();
 
 	/** Judging must always take place in server  */
 	void EndCastProcessOnServer(bool bIsInterrupt);
@@ -145,7 +199,9 @@ private:
 	 * 
 	 * This function is for the adjust. Basic state update must be occured with character's action.
 	 */
-	void SimulateStateUpdate(float DeltaTime);
+	void SimulateStateUpdateOnServer(float DeltaTime);
+
+	void GlobalVisualUpdateOfMesh(float DeltaTime);
 
 #pragma endregion
 
@@ -156,12 +212,19 @@ protected:
 	UPROPERTY(Replicated)
 	FString CharacterName;
 
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	uint8 CharacterNetIdx;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category= CharacterStat)
-	float BasicJumpIntensity;
+
+	UPROPERTY(EditAnywhere, ReplicatedUsing= OnRep_JumpIntensity, BlueprintReadWrite, Category= CharacterStat)
+	float JumpIntensity;
+
+	UFUNCTION()
+	void OnRep_JumpIntensity();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CharacterStat)
 	float BasicWalkSpeed;
+
 
 	UPROPERTY(EditAnywhere, Replicated)
 	float MaxHP;
@@ -171,17 +234,23 @@ public:
 	FString GetCharacterName() const { return CharacterName; }
 	void SetCharacterName(const FString& name) { this->CharacterName = name; }
 
+	uint8 GetPlayerNetIdx() const { return CharacterNetIdx; }
+	void SetPlayerNetIdx(const uint8 InNetIdx) { CharacterNetIdx = InNetIdx;}
+	
 	/** This function must be called by Server */
 	void HandWeaponToPlayer(UClass* InWeaponClass);
 
 	/** This function must be called by server */
-	void SetPlayerIdentityColor(FColor color);
+	void SetPlayerIdentityColorOnServer(FColor color);
+
+	const FColor GetPlayerIdentityColor() const { return PlayerIdentityColor; }
 
 	float GetMaxHP() const { return MaxHP; }
 
 protected:
 	void EquipWeapon();
 	void ApplyIdentityColor();
+	void ApplyJumpIntensity();
 
 #pragma endregion
 
@@ -195,9 +264,15 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_PlayerIdentityColor)
 	FColor PlayerIdentityColor;
 
+	UPROPERTY(EditDefaultsOnly, Category=PlayerVisual)
+	class UNiagaraSystem* DoubleJumpEffectNiagara;
+
 	UPROPERTY()
 	UMaterialInstanceDynamic* IdentityMaterial;
 
+	UPROPERTY()
+	UMaterialInstanceDynamic* BlinkingMaterial;
+	
 	UFUNCTION()
 	void OnRep_CurEquippedWeapon();
 
@@ -211,10 +286,18 @@ private:
 	class UUSCharacterAnim* CharAnim;
 
 	UPROPERTY(Replicated)
+	uint8 PlayerLifeCount;
+
+	UPROPERTY(Replicated)
 	float CurHP;
 
 	UPROPERTY(Replicated)
 	uint8 CurComboIdx = 0;
+
+
+	bool bIsFallingPrevFrame = false;
+	bool bIsGroundedThisFrame = false;
+	
 
 
 	TWeakObjectPtr<class USkillComponentBase> CurCastingSkill;
@@ -227,14 +310,21 @@ private:
 	UPROPERTY(EditDefaultsOnly)
 	float DefaultImpactTime = 0.67f;
 
-	UPROPERTY(VisibleInstanceOnly)
+	UPROPERTY(VisibleInstanceOnly, Replicated)
 	float ImpactTimer = 0;
 
 	UPROPERTY(EditDefaultsOnly)
-	float DefaultBlownEndTime = 1 + 0.43;
+	float DefaultBlownRecoveryTime = 1 + 0.43;
 
-	UPROPERTY(VisibleInstanceOnly)
-	float BlownTimer = 0;
+	UPROPERTY(VisibleInstanceOnly, Replicated)
+	float BlownRecoveryTimer = 0;
+	
+	UPROPERTY(VisibleInstanceOnly, Replicated)
+	float InvincibleTimer = 0;
+
+	UPROPERTY(VisibleInstanceOnly, Replicated)
+	float InvincibleTime = 0;
+
 
 public:
 	uint8 IsOrderExecutableState() const
@@ -264,7 +354,7 @@ public:
 		switch (InOrder.Type)
 		{
 		case FUSOrderType::Jump:
-			if (IsJumping()) return true;
+			if (IsJumping() && !CanJump()) return true;
 			break;
 
 		case FUSOrderType::Move:
@@ -301,19 +391,40 @@ public:
 	{
 		return (ActionStateBitMask & EUSPlayerActionState::Impacted);
 	}
-
+	
 	bool IsBlown() const
 	{
 		return (ActionStateBitMask & EUSPlayerActionState::Blown);
+	}
+
+	bool IsInvincible() const
+	{
+		return (ActionStateBitMask & EUSPlayerActionState::Invincible);
+	}
+
+	bool IsDied() const
+	{
+		return (ActionStateBitMask & EUSPlayerActionState::Died);
+	}
+	
+	
+
+	bool GetIsGroundedThisFrame() const
+	{
+		return bIsGroundedThisFrame;
 	}
 
 
 	void RecoveryFromImpacted();
 	void RecoveryFromBlown();
 	void RecoveryFromCast();
-
+	void RecoveryFromInvincible();
+	
 
 	float GetCurHP() const { return CurHP; }
+
+	void SetPlayerLifeCount(uint8 InLifeCount) { PlayerLifeCount = InLifeCount; }
+	uint8 GetCurLifeCount() const { return PlayerLifeCount; }
 	AUSWeaponBase* GetCurEquippedWeapon() const { return CurEquippedWeapon; }
 
 #pragma endregion
@@ -328,14 +439,14 @@ private
 		GEngine->AddOnScreenDebugMessage(11, 10.f, FColor::Blue,
 		                                 FString::Printf(TEXT(
 			                                 "OrderAcceptable: %d\n Move: %d\n Jump: %d\n IsAttacking: %d\n "
-			                                 "IsImpacted: %d\n IsBlown: %d\n IsInAir: %d\n IsMoveInputIgnored: %d, "
+			                                 "IsImpacted: %d\n IsBlown: %d\n IsInvincible: %d\n IsInAir: %d\n"\
 											 ),
 		                                                 IsOrderExecutableState(), IsMoving(), IsJumping(),
 		                                                 IsCasting(),
 		                                                 IsImpacted(),
 		                                                 IsBlown(),
-		                                                 GetCharacterMovement()->IsFalling(),
-		                                                 IsMoveInputIgnored()
+		                                                 IsInvincible(),
+		                                                 GetCharacterMovement()->IsFalling()
 		                                                 ));
 	}
 

@@ -42,8 +42,8 @@ void UDashskill::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 
 				CastAttackHitEffect(EffectLocation, AtkDir.Rotation());
 				
-				Target->USTakeDamage(SkillDmg, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
 				Target->USTakeImpact(SkillImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
+				Target->USTakeDamage(SkillDmg, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
 				AlreadyAttackedCharacters.Add(Target);
 
 				UE_LOG(LogTemp, Log, TEXT("%s"), *GetOwner()->GetName());

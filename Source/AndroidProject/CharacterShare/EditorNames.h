@@ -16,13 +16,21 @@ namespace USSocketNames
 namespace USMaterialParamNames
 {
 	const static FName Tint=FName("Tint");
+	const static FName Brightness=FName("Metal_Brightness");
 }
 
+namespace USTagNames
+{
+	const static FName Taken = FName("Taken");
+	const static FName SpectatorStart = FName("SpectatorStart");
+}
 
 namespace CollisionName
 {
 	const static FName NoCollision = FName("NoCollision");
 	const static FName Attack = FName("Attack");
+	const static FName Spectator = FName("Spectator");
+	const static FName Pawn = FName("Pawn");
 }
 
 namespace USCollisionChannel
@@ -36,12 +44,22 @@ namespace USConsts
 	constexpr float LAUNCH_COEFF = 50.f;
 	constexpr float BLOWN_THRESHOLD = 1.f + FLT_EPSILON;
 
+	constexpr uint8 BLINKING_MATERIAL_IDX = 0;
 	constexpr uint8 IDENTITY_MATERIAL_IDX = 1;
+
+	constexpr uint8 PLAYER_MAX_NUM_SYSTEM = 4;
+}
+
+namespace USF_BP_Consts
+{
+	
 }
 
 namespace PlayerIdentityColorRange
 {
-	const static FColor Colors[5]
+	constexpr uint8 COLOR_RANGE_NUM = 5;
+	
+	const static FColor Colors[COLOR_RANGE_NUM]
 	{
 		FColor(1,0,0),
 		FColor(0,1,0),
@@ -60,6 +78,6 @@ namespace MontageSectionNames
 		FName("Combo3"),
 		FName("Combo4")
 	};
-\
+
 }
 

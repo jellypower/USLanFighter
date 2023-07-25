@@ -97,17 +97,19 @@ void AProjectileBase::DeactivateProjectile()
 	DeactivateProjectile_Internal();
 }
 
-void AProjectileBase::ActivateProjectile(FVector SpawnPos, FVector CastDir, float Dmg, float Speed)
+void AProjectileBase::ActivateProjectile(FVector SpawnPos, FVector CastDir, float Dmg, float Impact, float Speed)
 {
 	ProjectileDmg = Dmg;
+	ProjectileImpact = Impact;
 	SetActorLocation(SpawnPos);
 	SetActorRotation(FRotator(0, 0, 90));
+
+	ReplicateProjectileSpeed(CastDir, Speed);
 	
 	AActor::SetActorHiddenInGame(false);
 	SetActorEnableCollision(true);
 	SetActorTickEnabled(true);
 
-	ReplicateProjectileSpeed(CastDir, Speed);
 	StartSlashEffect();
 
 	LifeTimer = LifeTime;
@@ -118,14 +120,14 @@ void AProjectileBase::OnProjCollision(AUSFightingCharacter* Target)
 {
 	FDamageEvent DmgEvent;
 
-	FVector AtkDir = ProjMovementComp->Velocity.GetSafeNormal();
+	const FVector AtkDir = ThrowingDir.GetSafeNormal();
 
 	constexpr float EFFECT_CAST_COEFF = 50.f;
 	FVector CollisionPos = Target->GetActorLocation() - AtkDir * EFFECT_CAST_COEFF;
 
+	Target->USTakeImpact(ProjectileImpact, GetInstigatorController(), OwnerFighter.Get(), this, FVector2D(AtkDir));
 	const float ActuallyTakenDmg =
 		Target->USTakeDamage(ProjectileDmg, GetInstigatorController(), OwnerFighter.Get(), this, FVector2D(AtkDir));
-	Target->USTakeImpact(ProjectileDmg, GetInstigatorController(), OwnerFighter.Get(), this, FVector2D(AtkDir));
 
 	if(ActuallyTakenDmg > 0)
 		CastAttackHitEffect(CollisionPos, AtkDir.Rotation());
@@ -143,7 +145,7 @@ void AProjectileBase::ReplicateProjectileSpeed_Implementation(FVector CastDir, f
 {
 	ProjMovementComp->InitialSpeed = Speed;
 	ProjMovementComp->MaxSpeed = Speed;
-	ProjMovementComp->Velocity = CastDir * Speed;
+	ProjMovementComp->Velocity = ThrowingDir = CastDir * Speed;
 }
 
 void AProjectileBase::StartSlashEffect_Implementation()

@@ -103,6 +103,8 @@ public:
 	float GetImpactThreshold() const { return ImpactThreshold; }
 	float GetBlownThreshold() const { return BlownThreshold; }
 	float GetWalkSpeed() const { return WalkSpeed; }
+	float GetAutoDetectRadius() const { return AutoDetectRadius; }
+	float GetAutoDetectDegree() const { return AutoDetectDegree; }
 
 protected:
 	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
@@ -117,6 +119,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
 	float WalkSpeed;
 
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
+	float AutoDetectRadius;
+
+	UPROPERTY(EditDefaultsOnly, Category= "WeaponBaseSetting/CharacterStat")
+	float AutoDetectDegree = 45;
 protected:
 	TObjectPtr<class AUSFightingCharacter> OwnerAUSCharacter;
 

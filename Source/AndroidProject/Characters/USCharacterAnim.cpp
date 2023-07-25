@@ -121,6 +121,10 @@ bool UUSCharacterAnim::IsCharacterBlown() const
 	return AnimatingCharacter->IsBlown();
 }
 
+bool UUSCharacterAnim::IsCharacterDeath() const
+{
+	return AnimatingCharacter->IsDied();
+}
 
 
 void UUSCharacterAnim::ExitFromCastStateOnBasicAtk(UAnimMontage* Montage, bool bInterrupted)

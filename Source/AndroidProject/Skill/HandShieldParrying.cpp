@@ -75,7 +75,7 @@ void UHandShieldParrying::OnBlocked
 
 	CastBlockEffect(EffectLocation, ImpactDir.Rotation());
 	
-	DmgCausedFighter->USTakeImpact(TakenImpact, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, 
+	DmgCausedFighter->USTakeImpact(InflicatingImpactAmountOnBlocked, GetOwner()->GetInstigatorController(), OwnerUSFighter, this, 
 		FVector2D(ImpactDir));
 
 	UE_LOG(LogTemp, Log, TEXT("%s took impact"), *DmgCausedFighter->GetName());

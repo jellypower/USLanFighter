@@ -8,10 +8,14 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/Pawn.h"
 #include "InputDataAsset/InputActionDataAsset.h"
+#include "GameFramework/TouchInterface.h"
+
 
 #include "USFightingCharacter.h"
+#include "USSpectatorPawn.h"
 #include "UI/USTouchInterfaceButton.h"
-
+#include "UI/USPlayerCharacterHUD.h"
+#include "Settings/USFightingGameState.h"
 
 AAndroidProjectPlayerController::AAndroidProjectPlayerController()
 {
@@ -19,10 +23,19 @@ AAndroidProjectPlayerController::AAndroidProjectPlayerController()
 	DefaultMouseCursor = EMouseCursor::Default;
 }
 
+void AAndroidProjectPlayerController::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	CurControlState = EUSControState::Fighting;
+}
+
 void AAndroidProjectPlayerController::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
+
+	USGameState = GetWorld()->GetGameState<AUSFightingGameState>();
+
 
 	//Add Input Mapping Context
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(
@@ -32,19 +45,24 @@ void AAndroidProjectPlayerController::BeginPlay()
 	}
 
 	FString LogMessage = FString::Printf(TEXT("World URL: %s"), *GetWorld()->GetAddressURL());
-	//GEngine->AddOnScreenDebugMessage(10, 10.f, FColor::Red, LogMessage);
 
-	UE_LOG(LogTemp, Log, TEXT("loca: %d, remote: %d"), GetLocalRole(), GetRemoteRole());
-	
 	// UI Setting
 	if (IsLocalController())
 	{
-		ServerClientWidgetInstance = Cast<UUserWidget>(CreateWidget(GetWorld(), ServerClientWidgetAsset));
-		ServerClientWidgetInstance->AddToViewport();
-
+		
 		TouchInterfaceBtnWidgetInstance = Cast<UUSTouchInterfaceButton>(
 			CreateWidget(GetWorld(), TouchInterfaceButtonWidgetAsset));
 		TouchInterfaceBtnWidgetInstance->AddToViewport();
+
+		PlayerStateHUDInstance = Cast<UUSPlayerCharacterHUD>(
+			CreateWidget(GetWorld(), PlayerStateHUDAsset));
+		PlayerStateHUDInstance->AddToViewport();
+
+		SettingsWidgetInstance = CreateWidget(GetWorld(), SettingsWidgetAsset);
+		SettingsWidgetInstance->AddToViewport();
+
+		ActivateTouchInterface(TouchInterfaceJoystickAsset);
+
 
 		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::JumpButton, EUSBtnTouchTriggerEvent::OnPressed
 		                                            , this, &AAndroidProjectPlayerController::OnInputJump);
@@ -58,21 +76,67 @@ void AAndroidProjectPlayerController::BeginPlay()
 		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::AttackButton, EUSBtnTouchTriggerEvent::OnPressed
 		                                            , this, &AAndroidProjectPlayerController::OnInputAttack);
 
-		TouchInterfaceBtnWidgetInstance->BindAction(EUSButtonType::KickButton, EUSBtnTouchTriggerEvent::OnPressed
-		                                            , this, &AAndroidProjectPlayerController::OnInputSmash);
+
+		/** On Listen Server's side, OnRep_Pawn is called after PlayerController's BeginPlay */
+		if (HasAuthority()) // for listen server
+		{
+			TouchInterfaceBtnWidgetInstance->BindPlayer(ControllingCharacter);
+			PlayerStateHUDInstance->BindPlayer(ControllingCharacter);
+		}
+		else TryBindWidgetToCharacter();
+		// In the case of Local Player, the call order of BeginPlay and OnRep_Pawn is not guaranteed
+		// So Bind player wirh widget must be called both OnRep_Pawn and BeginPlay
 	}
 }
+
+void AAndroidProjectPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	/*if(GetWorldTimerManager().TimerExists(RecalltimerHandle))
+	{
+		UE_LOG(LogTemp, Log, TEXT("Clear Timer"));
+		GetWorldTimerManager().PauseTimer(RecalltimerHandle);
+		GetWorldTimerManager().ClearTimer(RecalltimerHandle);
+		
+	}*/
+	Super::EndPlay(EndPlayReason);
+}
+
+void AAndroidProjectPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	if (CurControlState == EUSControState::Spectating)
+	{
+		if (!ObservingActor.IsValid())
+		{
+			FindNextObservableActor();
+			SetViewTarget(ObservingActor.Get());
+		}
+	}
+}
+
 
 void AAndroidProjectPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	ControllingCharacter = CastChecked<AUSFightingCharacter>(InPawn);
+	if (IsLocalController()) // On Possess works only on server. So It means Listen server's local PlayerController
+		UpdatePawnInfo();
 }
 
 void AAndroidProjectPlayerController::OnRep_Pawn()
 {
 	Super::OnRep_Pawn();
-	ControllingCharacter = Cast<AUSFightingCharacter>(GetCharacter());
+	UE_LOG(LogTemp, Log, TEXT("OnRep: PawnName: %s"),
+	       GetPawn() == nullptr ? TEXT("NULL") : *GetPawn()->GetClass()->GetName());
+	if (GetPawn() == nullptr) return;
+
+	UpdatePawnInfo();
+
+	/** On Client's side, OnRep_Pawn is called after PlayerController's BeginPlay */
+	if (IsLocalPlayerController())
+	{
+		TryBindWidgetToCharacter();
+	}
 }
 
 
@@ -99,14 +163,11 @@ void AAndroidProjectPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(MyInputAction->IAAttack, ETriggerEvent::Started, this
 		                                   , &AAndroidProjectPlayerController::OnInputAttack);
 
-		EnhancedInputComponent->BindAction(MyInputAction->IAKick, ETriggerEvent::Started, this
-		                                   , &AAndroidProjectPlayerController::OnInputSmash);
-
 		EnhancedInputComponent->BindAction(MyInputAction->IAMove, ETriggerEvent::Triggered, this
 		                                   , &AAndroidProjectPlayerController::OnInputMove);
 
 		EnhancedInputComponent->BindAction(MyInputAction->IAMove, ETriggerEvent::Completed, this
-					, &AAndroidProjectPlayerController::OffInputMove);
+		                                   , &AAndroidProjectPlayerController::OffInputMove);
 	}
 }
 
@@ -115,13 +176,12 @@ void AAndroidProjectPlayerController::OnInputMove(const FInputActionValue& val)
 	CurInputDir = val.Get<FVector2D>();
 	CurInputDir.Normalize();
 
-	
 	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Move, CurInputDir));
 }
 
 void AAndroidProjectPlayerController::OffInputMove(const FInputActionValue& val)
 {
-	CurInputDir = FVector2d::Zero();
+	CurInputDir = FVector2D::Zero();
 }
 
 void AAndroidProjectPlayerController::OnInputJump(const FInputActionValue& val)
@@ -144,7 +204,88 @@ void AAndroidProjectPlayerController::OnInputAttack(const FInputActionValue& val
 	ControllingCharacter->OrderTo(FUSOrder(FUSOrderType::Attack, GetCurInputDir()));
 }
 
-void AAndroidProjectPlayerController::OnInputSmash(const FInputActionValue& val)
+
+bool AAndroidProjectPlayerController::TryBindWidgetToCharacter()
 {
-	UE_LOG(LogTemp, Log, TEXT("Kick"));
+	if (IsValid(TouchInterfaceBtnWidgetInstance) && IsValid(ControllingCharacter))
+	{
+		TouchInterfaceBtnWidgetInstance->BindPlayer(ControllingCharacter);
+	}
+	else return false;
+
+	if (IsValid(PlayerStateHUDInstance) && IsValid(ControllingCharacter))
+	{
+		PlayerStateHUDInstance->BindPlayer(ControllingCharacter);
+	}
+	else return false;
+	
+	return true;
+}
+
+void AAndroidProjectPlayerController::UpdatePawnInfo()
+{
+	ControllingCharacter = Cast<AUSFightingCharacter>(GetCharacter());
+	if (ControllingCharacter)
+	{
+		ControllingCharacter->OnPlayerDestroyed.AddUniqueDynamic(
+			this, &AAndroidProjectPlayerController::OnCharacterDestroyedOnClientCallback);
+	}
+}
+
+void AAndroidProjectPlayerController::OnCharacterDestroyedOnClientCallback(AUSFightingCharacter* InUSFighter)
+{
+	UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
+	EnhancedInputComponent->ClearBindingsForObject(this);
+
+	TouchInterfaceBtnWidgetInstance->RemoveFromParent();
+	TouchInterfaceBtnWidgetInstance->UnBindPlayer();
+	TouchInterfaceBtnWidgetInstance = nullptr;
+
+	PlayerStateHUDInstance->RemoveFromParent();
+	PlayerStateHUDInstance->UnBindPlayer();
+	PlayerStateHUDInstance = nullptr;
+
+	ActivateTouchInterface(nullptr);
+	TouchInterfaceJoystickAsset = nullptr;
+
+
+	USMoveToSpectatingMode();
+}
+
+
+void AAndroidProjectPlayerController::OnInputTap(const FInputActionValue& val)
+{
+	FindNextObservableActor();
+	SetViewTarget(ObservingActor.Get());
+}
+
+void AAndroidProjectPlayerController::FindNextObservableActor()
+{
+	CurrentObservingActorIdx++;
+
+	if (USGameState == nullptr && GetWorld() != nullptr)
+	{
+		USGameState = GetWorld()->GetGameState<AUSFightingGameState>();
+	} // Because USGameState must be replicated from server, It can be missing on client when cache from BeginPlay
+
+	if (USGameState->GetActiveCharacterCount() <= CurrentObservingActorIdx)
+	{
+		CurrentObservingActorIdx = -1; // Idx -1 means OverviewObservingActor
+	}
+	ObservingActor = USGameState->GetActorToView(CurrentObservingActorIdx);
+}
+
+void AAndroidProjectPlayerController::USMoveToSpectatingMode()
+{
+	if (!IsValid(this)) return;
+	UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent);
+	EnhancedInputComponent->
+		BindAction(MyInputAction->IATap, ETriggerEvent::Started, this
+		           , &AAndroidProjectPlayerController::OnInputTap);
+
+	FindNextObservableActor();
+	SetViewTarget(ObservingActor.Get());
+
+	SetActorTickEnabled(true);
+	CurControlState = EUSControState::Spectating;
 }

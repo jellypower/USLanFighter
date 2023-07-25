@@ -32,6 +32,7 @@ public:
 	UInputAction* IAAttack;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	UInputAction* IAKick;
+	UInputAction* IATap;
+
 	
 };

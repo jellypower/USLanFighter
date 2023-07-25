@@ -40,7 +40,6 @@ void USkillComponentBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 void USkillComponentBase::BeginDestroy()
 {
 	Super::BeginDestroy();
-	UE_LOG(LogTemp, Error, TEXT("Skill has bee destroyed!!"));
 }
 
 void USkillComponentBase::SetOwnerUSFighter(AUSFightingCharacter* InCharacter)

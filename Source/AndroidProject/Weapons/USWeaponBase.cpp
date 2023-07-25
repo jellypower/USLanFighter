@@ -35,7 +35,7 @@ AUSWeaponBase::AUSWeaponBase()
 
 	TrailParticleComp = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("Trail Particle Component"));
 	TrailParticleComp->SetupAttachment(WeaponMeshComp);
-	TrailParticleComp->SetIsReplicated(true);
+	TrailParticleComp->SetIsReplicated(false);
 
 	WeaponDmg.SetNum(DEFAULT_COMBO_MAX_NUM);
 	WeaponDmg.SetNumZeroed(DEFAULT_COMBO_MAX_NUM);
@@ -97,6 +97,9 @@ void AUSWeaponBase::Tick(float DeltaTime)
 
 void AUSWeaponBase::NotifyActorBeginOverlap(AActor* OtherActor)
 {
+
+	if(!bIsWeaponDmgEffective && !bIsWeaponImpactEffective) return ;
+	
 	AUSFightingCharacter* OtherUsFightingCharacter = CastChecked<AUSFightingCharacter>(OtherActor);
 
 	if (OtherActor != GetOwner() && !AlreadyAttackedCharacters.Contains(OtherUsFightingCharacter))
@@ -105,8 +108,17 @@ void AUSWeaponBase::NotifyActorBeginOverlap(AActor* OtherActor)
 
 		AlreadyAttackedCharacters.Add(OtherUsFightingCharacter);
 
-		const FVector2D AtkDir = FVector2d(OtherActor->GetActorLocation() - Owner->GetActorLocation()).GetSafeNormal(); 
+		
+		const FVector2D AtkDir = FVector2d(
+			OtherActor->GetActorLocation() - OwnerAUSCharacter->GetActorLocation()).GetSafeNormal(); 
 
+
+		if (bIsWeaponImpactEffective)
+		{
+			OtherUsFightingCharacter->USTakeImpact(curWeaponImpact, GetOwner()->GetInstigatorController(), OwnerAUSCharacter, this
+												 , AtkDir);
+		}
+		
 		if (bIsWeaponDmgEffective)
 		{
 			FDamageEvent DmgEvent;
@@ -119,21 +131,15 @@ void AUSWeaponBase::NotifyActorBeginOverlap(AActor* OtherActor)
 			{
 				constexpr float EFFECT_CAST_BIAS = 50;
 
-				const FVector atkDir = (WeaponDmgBoxComp->GetComponentLocation() - OtherActor->GetActorLocation()).
+				const FVector AtkEffectDir = (WeaponDmgBoxComp->GetComponentLocation() - OtherActor->GetActorLocation()).
 					GetSafeNormal();
 				const FVector spawnLocation = OtherActor->GetActorLocation()
-					+ atkDir * EFFECT_CAST_BIAS;
+					+ AtkEffectDir * EFFECT_CAST_BIAS;
 
-				const FRotator spawnRotate = atkDir.Rotation();
+				const FRotator spawnRotate = AtkEffectDir.Rotation();
 				
 				CastAttackHitEffect(spawnLocation, spawnRotate);
 			}
-		}
-
-		if (bIsWeaponImpactEffective)
-		{
-			OtherUsFightingCharacter->USTakeImpact(curWeaponImpact, GetOwner()->GetInstigatorController(), OwnerAUSCharacter, this
-			                                     , AtkDir);
 		}
 	}
 }

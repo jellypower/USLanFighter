@@ -56,9 +56,9 @@ void UWhirlwind::TriggerEffect()
 
 			CastAttackHitEffect(EffectLocation, AtkDir.Rotation());
 
-			Target->USTakeDamage(SwingDmg[SwingCount],  GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
 			Target->USTakeImpact(SwingImpact[SwingCount], GetOwner()->GetInstigatorController(), OwnerUSFighter, this,
 			                   FVector2D(AtkDir));
+			Target->USTakeDamage(SwingDmg[SwingCount],  GetOwner()->GetInstigatorController(), OwnerUSFighter, this, FVector2D(AtkDir));
 
 		}
 	}

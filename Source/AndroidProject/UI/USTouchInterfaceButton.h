@@ -19,7 +19,6 @@ enum class EUSButtonType : uint8
 	JumpButton = 1,
 	Skill1Button,
 	Skill2Button,
-	KickButton
 };
 
 UENUM(BlueprintType)
@@ -44,8 +43,17 @@ class ANDROIDPROJECT_API UUSTouchInterfaceButton : public UUserWidget
 
 
 private:
-	FButtonEventDelegate OnButtonEvent[5][3];
 
+	UPROPERTY()
+	const class AUSFightingCharacter* ControllingCharacter;
+
+	UPROPERTY()
+	const class USkillComponentBase* Skill1;
+
+	UPROPERTY()
+	const class USkillComponentBase* Skill2;
+	
+	FButtonEventDelegate OnButtonEvent[4][3];
 	FInputActionValue boolValue = FInputActionValue(true);
 
 public:
@@ -56,9 +64,28 @@ public:
 		OnButtonEvent[static_cast<int8>(BtnType)][static_cast<int8>(BtnTriggerEvent)].BindUObject(obj, Func);
 	}
 
+	void BindPlayer(AUSFightingCharacter* InControllingCharacter);
+	void UnBindPlayer();
+
+	
 	UFUNCTION(BlueprintCallable)
 	void OnInputButton(EUSButtonType BtnType, EUSBtnTouchTriggerEvent BtnTriggerEvent)
 	{
 		OnButtonEvent[static_cast<int8>(BtnType)][static_cast<int8>(BtnTriggerEvent)].Execute(boolValue);
 	}
+
+protected:
+
+	UFUNCTION()
+	void OnPlayerEquipWeapon(class AUSWeaponBase* Weapon);
+
+	UFUNCTION(BlueprintPure)
+	float GetPlayerSkill1CooldownRatio() const;
+
+	UFUNCTION(BlueprintPure)
+	float GetPlayerSkill2CooldownRatio() const;
+
+private:
+
+	bool TryExtractSkillsFromWeapon(const class AUSWeaponBase* Weapon);
 };

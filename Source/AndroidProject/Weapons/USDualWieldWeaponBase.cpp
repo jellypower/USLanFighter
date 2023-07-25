@@ -19,3 +19,20 @@ void AUSDualWieldWeaponBase::PostInitializeComponents()
 		check(IsValid(SubWeapon));
 	}
 }
+
+void AUSDualWieldWeaponBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	if(IsValid(SubWeapon))
+	{
+		SubWeapon->Destroy();
+	}
+}
+
+void AUSDualWieldWeaponBase::SetActorHiddenInGame(bool bNewHidden)
+{
+	Super::SetActorHiddenInGame(bNewHidden);
+
+	SubWeapon->SetActorHiddenInGame(bNewHidden);
+}

@@ -17,8 +17,11 @@ class ANDROIDPROJECT_API AUSDualWieldWeaponBase : public AUSWeaponBase
 
 public:
 	virtual void PostInitializeComponents() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
+	virtual void SetActorHiddenInGame(bool bNewHidden) override;
+	
 	TObjectPtr<AActor> GetSubWeapon() const { return SubWeapon; }
 
 protected:

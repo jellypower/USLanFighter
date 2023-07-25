@@ -9,8 +9,12 @@
 
 #include "AndroidProjectPlayerController.generated.h"
 
-/** Forward declaration to improve compiling times */
-class UNiagaraSystem;
+
+enum class EUSControState
+{
+	Fighting,
+	Spectating
+};
 
 UCLASS()
 class AAndroidProjectPlayerController : public APlayerController
@@ -20,13 +24,19 @@ class AAndroidProjectPlayerController : public APlayerController
 #pragma region Unreal Events
 public:
 	AAndroidProjectPlayerController();
-	
+
 protected:
 	virtual void SetupInputComponent() override;
+	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	virtual void PlayerTick(float DeltaTime) override;
+
 	virtual void OnPossess(APawn* InPawn) override; // works only server
-	virtual void OnRep_Pawn() override;
+	virtual void OnRep_Pawn() override; // works only on client
+
 
 #pragma endregion
 	
@@ -51,7 +61,6 @@ protected:
 	void OnInputSkill1(const FInputActionValue& val);
 	void OnInputSkill2(const FInputActionValue& val);
 	void OnInputAttack(const FInputActionValue& val);
-	void OnInputSmash(const FInputActionValue& val);
 
 	UPROPERTY(VisibleAnywhere, Category=Input)
 	FVector2D CurInputDir;
@@ -60,18 +69,30 @@ protected:
 	
 #pragma region Widget variables
 private:
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UUserWidget> ServerClientWidgetAsset;
 
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<class UUSPlayerCharacterHUD> PlayerStateHUDAsset;
+	
 	UPROPERTY(VisibleInstanceOnly)
-	TObjectPtr<class UUserWidget> ServerClientWidgetInstance;
+	TObjectPtr<class UUSPlayerCharacterHUD> PlayerStateHUDInstance;
 
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<class UUserWidget> TouchInterfaceButtonWidgetAsset;
-
+	
 	UPROPERTY(VisibleInstanceOnly)
 	TObjectPtr<class UUSTouchInterfaceButton> TouchInterfaceBtnWidgetInstance;
 
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<class UUserWidget> SettingsWidgetAsset;
+
+	UPROPERTY(VisibleInstanceOnly)
+	TObjectPtr<class UUserWidget> SettingsWidgetInstance;
+
+	UPROPERTY(EditDefaultsOnly)
+	class UTouchInterface* TouchInterfaceJoystickAsset;
+
+	bool TryBindWidgetToCharacter();
+	
 #pragma endregion
 
 
@@ -79,12 +100,32 @@ private:
 private:
 	/** GetCharcter()'s cache */
 	UPROPERTY()
-	TObjectPtr<class AUSFightingCharacter> ControllingCharacter;
+	class AUSFightingCharacter* ControllingCharacter;
 
+	void UpdatePawnInfo();
+
+	UFUNCTION()
+	void OnCharacterDestroyedOnClientCallback(AUSFightingCharacter* InUSFighter);
 
 
 #pragma endregion
 
+
+#pragma region Spectator Control Code
+private:
+	TWeakObjectPtr<class AUSFightingGameState> USGameState;
+	EUSControState CurControlState;
+
+	TWeakObjectPtr<AActor> ObservingActor;
+	uint8 CurrentObservingActorIdx = -1;
+
+	void FindNextObservableActor();
+	UFUNCTION()
+	void USMoveToSpectatingMode();
+	void OnInputTap(const FInputActionValue& val);
+
+#pragma endregion 
+	
 };
 
 

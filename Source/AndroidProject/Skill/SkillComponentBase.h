@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "CharacterShare/ShareEnums.h"
 #include "SkillComponentBase.generated.h"
 
 
@@ -32,9 +33,16 @@ public:
 	virtual bool IsCasting() const PURE_VIRTUAL(USkillComponentBase::IsCasting, return false; );
 	UAnimMontage* GetCastMotion() const { return CastMotion; }
 
-	bool GetCastableOnImpacted(){ return bCastableOnImpacted; }
-	bool GetCastableOnBlown(){ return bCastableOnBlown; }
-
+	bool GetCastableOnImpacted() const { return bCastableOnImpacted; }
+	bool GetCastableOnBlown() const { return bCastableOnBlown; }
+	
+	EAutoDetectionType GetAutoDetectionType() const { return AutoDetectionType; }
+	float GetDetectionRadius() const { return DetectionRadius; }
+	float GetDetectinoDegree() const { return DetectionDegree; }
+	
+	float GetCooldownTimer() const { return CoolDownTimer; }
+	float GetCooldown() const { return CoolDown; }
+	
 	void SetOwnerUSFighter(class AUSFightingCharacter* InCharacter);
 
 
@@ -56,7 +64,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
 	bool bCastableOnBlown = false;
 
+	/** When true, the character aims to closest target based on casting direction*/
+	UPROPERTY(EditDefaultsOnly, Category="SkillSetting/AutoDetection")
+	EAutoDetectionType AutoDetectionType = EAutoDetectionType::None;
+
+	UPROPERTY(EditDefaultsOnly, Category="SkillSetting/AutoDetection")
+	float DetectionRadius = 200;
+
+	UPROPERTY(EditDefaultsOnly, Category="SkillSetting/AutoDetection")
+	float DetectionDegree = 45;
+	
 	void SetCooldown(){ CoolDownTimer = CoolDown;}
+
 	
 	UPROPERTY()
 	TObjectPtr<class AUSFightingCharacter> OwnerUSFighter;

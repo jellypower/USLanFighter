@@ -1,8 +1,9 @@
-	// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "USFightingCharacter.h"
 
 #include "ClearReplacementShaders.h"
+#include "NiagaraFunctionLibrary.h"
 #include "USCharacterAnim.h"
 #include "BattleSystemBase/ProjectileBase.h"
 #include "Camera/CameraComponent.h"
@@ -58,7 +59,9 @@ AUSFightingCharacter::AUSFightingCharacter()
 	TopDownCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("TopDownCamera"));
 	TopDownCameraComponent->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	TopDownCameraComponent->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
-
+	
+	bFindCameraComponentWhenViewTarget = true;
+	
 	// Activate ticking in order to update the cursor every frame.
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -70,7 +73,7 @@ AUSFightingCharacter::AUSFightingCharacter()
 	NameTagWidget->SetWidgetSpace(EWidgetSpace::Screen);
 	//NameTagWidget->SetIsReplicated(true);
 	static ConstructorHelpers::FClassFinder<UUserWidget>
-		NAME_TAG_ASSET(TEXT("/Game/UI/WB_InGamePlayerInfo.WB_InGamePlayerInfo_C"));
+		NAME_TAG_ASSET(TEXT("/Game/UI/InGameFightingUI/WB_InGamePlayerInfo.WB_InGamePlayerInfo_C"));
 
 	if (NAME_TAG_ASSET.Succeeded())
 	{
@@ -88,13 +91,12 @@ AUSFightingCharacter::AUSFightingCharacter()
 
 
 	// Character Stat Init
-	BasicJumpIntensity = 600.f;
+	JumpIntensity = 600.f;
 	BasicWalkSpeed = 600.f;
 	MaxHP = 100.f;
 
 	// Character State Init
 	ActionStateBitMask = 0;
-
 }
 
 
@@ -115,6 +117,8 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 			SendOrderToServer(BufferedOrder);
 			BufferedOrder.Init();
 		}
+
+/*
 #if defined(UE_BUILD_DEBUG) || defined(UE_BUILD_DEVELOPMENT)
 		if (IsLocallyControlled())
 		{
@@ -122,29 +126,28 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 			PrintCharacterStatOnScreen();
 
 			GEngine->AddOnScreenDebugMessage(12, 10.f, FColor::Blue,
-										 FString::Printf(TEXT(
-										 	 "CharacterName: %s\n"
-											 "CurCastingSkillName: %d, %s "
-											 )
-											 ,*GetName()
-											 ,CurCastingSkill.IsValid()
-											 ,CurCastingSkill.IsValid() ? *CurCastingSkill->GetName() : TEXT("None")));
+			                                 FString::Printf(TEXT(
+				                                 "CharacterName: %s\n"
+				                                 "CurCastingSkillName: %d, %s "
+			                                 )
+			                                                 , *GetName()
+			                                                 , CurCastingSkill.IsValid()
+			                                                 , CurCastingSkill.IsValid()
+				                                                   ? *CurCastingSkill->GetName()
+				                                                   : TEXT("None")));
 		}
 #endif
+*/
+
 	}
+
+	GlobalVisualUpdateOfMesh(DeltaSeconds);
 
 	// Server only
 	if (HasAuthority())
 	{
-		GEngine->AddOnScreenDebugMessage(13, 10.f, FColor::Blue,
-		                                 FString::Printf(TEXT(
-			                                 "X: %f, Y:%f, Z: %f"),
-		                                                 GetCharacterMovement()->GetLastInputVector().X,
-		                                                 GetCharacterMovement()->GetLastInputVector().Y,
-		                                                 GetCharacterMovement()->GetLastInputVector().Z));
 
-		SimulateStateUpdate(DeltaSeconds);
-
+		SimulateStateUpdateOnServer(DeltaSeconds);
 
 		if (ServerBufferedOrder.Type == FUSOrderType::None && !GetCharacterMovement()->GetCurrentAcceleration().
 			IsNearlyZero())
@@ -154,7 +157,7 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 
 		if (ServerBufferedOrder.Type != FUSOrderType::None)
 		{
-			if(IsOrderExecutableState())
+			if (IsOrderExecutableState())
 			{
 				if (ServerBufferedOrder.Type != FUSOrderType::Attack && CharAnim->IsAnyMontagePlaying())
 					StopAnimateAnyMotion();
@@ -162,7 +165,7 @@ void AUSFightingCharacter::Tick(float DeltaSeconds)
 				ExecuteOrderOnServer(ServerBufferedOrder);
 				ServerBufferedOrder.Init();
 			}
-			else if(IsExecutableOrderInOrderNotExecutableState(ServerBufferedOrder))
+			else if (IsExecutableOrderInOrderNotExecutableState(ServerBufferedOrder))
 			{
 				ExecuteOrderOnServer(ServerBufferedOrder);
 				ServerBufferedOrder.Init();
@@ -177,10 +180,13 @@ void AUSFightingCharacter::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	{
-		GetCharacterMovement()->JumpZVelocity = BasicJumpIntensity;
+		GetCharacterMovement()->JumpZVelocity = JumpIntensity;
 		GetCharacterMovement()->MaxAcceleration = TNumericLimits<float>::Max();
 		GetCharacterMovement()->MaxWalkSpeed = BasicWalkSpeed;
+		IdentityMaterial = GetMesh()->CreateDynamicMaterialInstance(USConsts::IDENTITY_MATERIAL_IDX);
+		BlinkingMaterial = GetMesh()->CreateDynamicMaterialInstance(USConsts::BLINKING_MATERIAL_IDX);
 	}
+
 }
 
 void AUSFightingCharacter::BeginPlay()
@@ -197,10 +203,16 @@ void AUSFightingCharacter::BeginPlay()
 
 void AUSFightingCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	UE_LOG(LogTemp, Log, TEXT("DestroyReadson: %d"), EndPlayReason);
+
+	if(EndPlayReason ==EEndPlayReason::Destroyed)
+	{
+		OnPlayerDestroyed.Broadcast(this);
+		if(IsValid(GetCurEquippedWeapon())) CurEquippedWeapon->Destroy();		
+	}
+
 	Super::EndPlay(EndPlayReason);
-	
-	if(IsValid(CurEquippedWeapon))
-		CurEquippedWeapon->Destroy();
+
 }
 
 
@@ -211,16 +223,24 @@ void AUSFightingCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AUSFightingCharacter, CurHP);
 	DOREPLIFETIME(AUSFightingCharacter, MaxHP);
 	DOREPLIFETIME(AUSFightingCharacter, CharacterName);
+	DOREPLIFETIME(AUSFightingCharacter, CharacterNetIdx);
 	DOREPLIFETIME(AUSFightingCharacter, ActionStateBitMask);
 	DOREPLIFETIME(AUSFightingCharacter, CurEquippedWeapon);
 	DOREPLIFETIME(AUSFightingCharacter, CurComboIdx);
 	DOREPLIFETIME(AUSFightingCharacter, PlayerIdentityColor);
+	DOREPLIFETIME(AUSFightingCharacter, BlownRecoveryTimer);
+	DOREPLIFETIME(AUSFightingCharacter, InvincibleTime);
+	DOREPLIFETIME(AUSFightingCharacter, InvincibleTimer);
+	DOREPLIFETIME(AUSFightingCharacter, ImpactTimer);
+	DOREPLIFETIME(AUSFightingCharacter, JumpIntensity);
+	DOREPLIFETIME(AUSFightingCharacter, PlayerLifeCount);
+	
 }
 
 void AUSFightingCharacter::OnRep_CurEquippedWeapon()
 {
 	EquipWeapon();
-	UE_LOG(LogTemp, Log, TEXT("%s's cur equipped impact block num: %d"), *GetName(), AttackBlockingSkills.Num());
+	UE_LOG(LogTemp, Log, TEXT("%s) Character: OnRepWeapon"), HasAuthority() ? TEXT("Server") : TEXT("Client"));
 }
 
 void AUSFightingCharacter::OnRep_PlayerIdentityColor()
@@ -230,26 +250,27 @@ void AUSFightingCharacter::OnRep_PlayerIdentityColor()
 
 bool AUSFightingCharacter::IsExecutableOrderInOrderNotExecutableState(const FUSOrder& InOrder) const
 {
-
-	return 
-	(IsImpacted() && InOrder.Type == FUSOrderType::Skill1 && CurEquippedWeapon->GetSkill(0)->GetCastableOnImpacted()) ||
-	(IsImpacted() && InOrder.Type == FUSOrderType::Skill2 && CurEquippedWeapon->GetSkill(1)->GetCastableOnImpacted()) ||
-	(IsBlown() && InOrder.Type == FUSOrderType::Skill1 && CurEquippedWeapon->GetSkill(0)->GetCastableOnBlown()) ||
-	(IsBlown() && InOrder.Type == FUSOrderType::Skill2 && CurEquippedWeapon->GetSkill(1)->GetCastableOnBlown());
-	
+	return
+		(IsImpacted() && InOrder.Type == FUSOrderType::Skill1 && CurEquippedWeapon->GetSkill(0)->
+			GetCastableOnImpacted()) ||
+		(IsImpacted() && InOrder.Type == FUSOrderType::Skill2 && CurEquippedWeapon->GetSkill(1)->
+			GetCastableOnImpacted()) ||
+		(IsBlown() && InOrder.Type == FUSOrderType::Skill1 && CurEquippedWeapon->GetSkill(0)->GetCastableOnBlown()) ||
+		(IsBlown() && InOrder.Type == FUSOrderType::Skill2 && CurEquippedWeapon->GetSkill(1)->GetCastableOnBlown());
 }
 
 void AUSFightingCharacter::RecoveryFromImpacted()
 {
-	if(HasAuthority())
+	if (HasAuthority())
 	{
 		ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Impacted;
+		ImpactTimer = 0.f;
 	}
 }
 
 void AUSFightingCharacter::RecoveryFromBlown()
 {
-	if(HasAuthority())
+	if (HasAuthority())
 	{
 		ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Blown;
 	}
@@ -257,9 +278,19 @@ void AUSFightingCharacter::RecoveryFromBlown()
 
 void AUSFightingCharacter::RecoveryFromCast()
 {
-	if(HasAuthority())
+	if (HasAuthority())
 	{
 		ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Cast;
+	}
+}
+
+void AUSFightingCharacter::RecoveryFromInvincible()
+{
+	if(HasAuthority())
+	{
+		ActionStateBitMask = ActionStateBitMask & ~EUSPlayerActionState::Invincible;
+		InvincibleTimer = 0;
+		InvincibleTime = 0;
 	}
 }
 
@@ -275,7 +306,7 @@ void AUSFightingCharacter::HandWeaponToPlayer(UClass* InWeaponClass)
 	EquipWeapon();
 }
 
-void AUSFightingCharacter::SetPlayerIdentityColor(FColor color)
+void AUSFightingCharacter::SetPlayerIdentityColorOnServer(FColor color)
 {
 	PlayerIdentityColor = color;
 	ApplyIdentityColor();
@@ -290,7 +321,7 @@ void AUSFightingCharacter::EquipWeapon()
 	CurEquippedWeapon->SetInstigator(this);
 
 	GetCharacterMovement()->MaxWalkSpeed = CurEquippedWeapon->GetWalkSpeed();
-	CurHP = CurEquippedWeapon->GetMaxHP() * (CurHP/MaxHP);
+	CurHP = CurEquippedWeapon->GetMaxHP() * (CurHP / MaxHP);
 	MaxHP = CurEquippedWeapon->GetMaxHP();
 
 	for (int i = 0; i < CurEquippedWeapon->GetTotalSkillNum(); i++)
@@ -313,17 +344,23 @@ void AUSFightingCharacter::EquipWeapon()
 
 	GetMesh()->SetAnimClass(CurEquippedWeapon->GetWeaponAnimBP());
 	CharAnim = CastChecked<UUSCharacterAnim>(GetMesh()->GetAnimInstance());
+
+	OnEquipWeapon.Broadcast(CurEquippedWeapon);
 }
 
 void AUSFightingCharacter::ApplyIdentityColor()
 {
-	if(IdentityMaterial == nullptr)
-	{
-		IdentityMaterial = GetMesh()->CreateDynamicMaterialInstance(USConsts::IDENTITY_MATERIAL_IDX);
-	}
-	UE_LOG(LogTemp, Log, TEXT("Color: %d %d %d"), PlayerIdentityColor.R, PlayerIdentityColor.G, PlayerIdentityColor.B);
+
+	OnIdentityColorApply.Broadcast(PlayerIdentityColor);
+	
 	IdentityMaterial->SetVectorParameterValue(USMaterialParamNames::Tint,
-		FLinearColor(PlayerIdentityColor.R, PlayerIdentityColor.G, PlayerIdentityColor.B));
+	                                          FLinearColor(PlayerIdentityColor.R, PlayerIdentityColor.G,
+	                                                       PlayerIdentityColor.B));
+}
+
+void AUSFightingCharacter::ApplyJumpIntensity()
+{
+	GetCharacterMovement()->JumpZVelocity = JumpIntensity;
 }
 
 
@@ -331,6 +368,10 @@ void AUSFightingCharacter::OnJumped_Implementation()
 {
 	Super::OnJumped_Implementation();
 	if (CharAnim->IsAnyCastingMotionPlaying()) CharAnim->StopPlayingAnyMotion();
+
+	if (JumpCurrentCount == 2)
+		CastDoubleJumpEffect();
+
 	ActionStateBitMask = ActionStateBitMask | EUSPlayerActionState::Jump;
 }
 
@@ -346,21 +387,29 @@ bool AUSFightingCharacter::IsMoveInputIgnored() const
 }
 
 float AUSFightingCharacter::USTakeDamage
-(float DamageAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter ,UObject* DamageCauser, const FVector2D& AtkDir)
+(const float DamageAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser,
+ const FVector2D& AtkDir)
 {
-	if(HasAuthority())
+	if (HasAuthority())
 	{
+		if (IsInvincible() || IsDied()) return 0;
+
 		for (auto AttackBlockingSkill : AttackBlockingSkills)
 		{
-
 			if (AttackBlockingSkill->IsTakenDmgBlockable
 				(DamageAmount, EventInstigator, DmgCausedFighter, DamageCauser, AtkDir))
 			{
 				return 0;
 			}
 		}
-		
+
 		CurHP -= DamageAmount;
+
+		if(CurHP < 0)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Died"));
+			USKillPlayerOnServer(ECauseOfDeath::HPZero, 3);
+		}
 
 		return DamageAmount;
 	}
@@ -369,13 +418,15 @@ float AUSFightingCharacter::USTakeDamage
 }
 
 float AUSFightingCharacter::USTakeImpact
-	(float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser, const FVector2D& AtkDir)
+(const float ImpactAmount, AController* EventInstigator, AUSFightingCharacter* DmgCausedFighter, UObject* DamageCauser,
+ const FVector2D& AtkDir)
 {
 	if (HasAuthority())
 	{
+		if (IsInvincible() || IsDied() || ImpactAmount <= 0) return 0;
+
 		for (auto ImpactBlockingSkill : AttackBlockingSkills)
 		{
-
 			if (DmgCausedFighter != nullptr && ImpactBlockingSkill->IsTakenImpactBlockable
 				(ImpactAmount, EventInstigator, DmgCausedFighter, DamageCauser, AtkDir))
 			{
@@ -384,38 +435,137 @@ float AUSFightingCharacter::USTakeImpact
 			}
 		}
 
-		if(ImpactAmount > USConsts::BLOWN_THRESHOLD && !IsBlown()) // If Blown possible
+		if (ImpactAmount > USConsts::BLOWN_THRESHOLD || IsBlown()
+			|| GetCharacterMovement()->IsFalling()) // If Blown possible
 		{
 			if (IsCasting())
 				InterruptCastingOnServer();
-			
-			BlownTimer = DefaultBlownEndTime;
-			
-			SetActorRotation((-FVector(AtkDir, 0)).Rotation());
 
 			LaunchCharacter(
 				USConsts::LAUNCH_COEFF
 				* ImpactAmount * FVector(AtkDir, 0.5), false, false);
-			
-			
-			AnimateBlown();
-			ActionStateBitMask = EUSPlayerActionState::Blown;
 
+			AnimateBlown(-FVector(AtkDir, 0));
+
+			UE_LOG(LogTemp, Log, TEXT("BlownDir: %f %f"), ImpactAmount * AtkDir.X, ImpactAmount * AtkDir.Y);
+			
+			BlownRecoveryTimer = DefaultBlownRecoveryTime;
+			ActionStateBitMask = EUSPlayerActionState::Blown;
 		}
-		else if(ImpactAmount > 0) // If Impact possible
+		else // If Impact possible
 		{
 			if (IsCasting())
 				InterruptCastingOnServer();
 
 			uint8 AnimateIdx = FMath::RandRange(0, CharAnim->GetTakeImpactAnimNum() - 1);
+			UE_LOG(LogTemp, Log, TEXT("ImpactDir: %f %f"), ImpactAmount * AtkDir.X, ImpactAmount * AtkDir.Y);
+
 			AnimateImpacted(AnimateIdx);
 			ImpactTimer = DefaultImpactTime;
 			ActionStateBitMask = EUSPlayerActionState::Impacted;
-
 		}
 	}
 
 	return ImpactAmount;
+}
+
+void AUSFightingCharacter::EnterInvincible(float InTime)
+{
+	InvincibleTime = InTime;
+	InvincibleTimer = InvincibleTime;
+	ActionStateBitMask = ActionStateBitMask | EUSPlayerActionState::Invincible;
+}
+
+bool AUSFightingCharacter::USIsDied()
+{
+	return IsDied();
+}
+
+void AUSFightingCharacter::USKillPlayerOnServer(ECauseOfDeath InCauseOfDeath, float RecallTime)
+{
+	if (IsCasting())
+	{
+		InterruptCastingOnServer();
+	}
+
+	ActionStateBitMask = EUSPlayerActionState::Died;
+
+	PlayerLifeCount--;
+
+	switch(InCauseOfDeath)
+	{
+	case ECauseOfDeath::Fall:
+		USDeactivatePlayer(false, false);
+		break;
+
+	case ECauseOfDeath::HPZero:
+		USDeactivatePlayer(false);
+		break;
+	}
+
+	OnPlayerDiedOnServer.Broadcast(this, InCauseOfDeath, RecallTime);
+
+	
+	
+}
+
+
+void AUSFightingCharacter::USDeactivatePlayer_Implementation(bool bHiddenPlayer, bool bFixLocation /* false */)
+{
+	OnPlayerDeactivated.Broadcast(this);
+
+	SetActorHiddenInGame(bHiddenPlayer);
+	if(IsValid(CurEquippedWeapon))
+	{
+		CurEquippedWeapon->SetActorHiddenInGame(bHiddenPlayer);
+	}
+	
+	if(bFixLocation)
+	{
+		GetCharacterMovement()->SetMovementMode(MOVE_None);
+		GetCharacterMovement()->Deactivate();
+
+	}
+
+	GetCapsuleComponent()->SetCollisionProfileName(CollisionName::Spectator);
+	DmgBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SetActorTickEnabled(false);
+
+}
+
+void AUSFightingCharacter::USRecallPlayerOnServer(AActor* RecallSpot,float InInvincibleTime)
+{
+	OnPlayerRecallOnServer.Broadcast(this);	
+	
+	ActionStateBitMask = EUSPlayerActionState::None;
+	CurHP = MaxHP;
+
+
+	TeleportTo(RecallSpot->GetActorLocation(), RecallSpot->GetActorRotation(), false, true);
+
+	
+	USReActivatePlayer();
+	EnterInvincible(InInvincibleTime);
+}
+
+void AUSFightingCharacter::USReActivatePlayer_Implementation()
+{
+	OnPlayerActivated.Broadcast(this);
+
+	GetCharacterMovement()->Velocity = FVector::Zero();
+	GetCharacterMovement()->PendingLaunchVelocity = FVector::Zero();
+	
+	SetActorHiddenInGame(false);
+	if(IsValid(CurEquippedWeapon))
+	{
+		CurEquippedWeapon->SetActorHiddenInGame(false);
+	}
+	
+	GetCharacterMovement()->Activate();
+	GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+	GetCapsuleComponent()->SetCollisionProfileName(CollisionName::Pawn);
+	DmgBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	SetActorTickEnabled(true);
 }
 
 
@@ -499,7 +649,7 @@ void AUSFightingCharacter::ExecuteOrderOnServer(const FUSOrder& InOrder)
 	}
 }
 
-void AUSFightingCharacter::SimulateStateUpdate(float DeltaTime)
+void AUSFightingCharacter::SimulateStateUpdateOnServer(float DeltaTime)
 {
 	if (!GetCharacterMovement()->IsFalling() && IsJumping() || !IsJumping())
 		ActionStateBitMask = ActionStateBitMask & (~EUSPlayerActionState::Jump);
@@ -509,20 +659,70 @@ void AUSFightingCharacter::SimulateStateUpdate(float DeltaTime)
 	else
 		ActionStateBitMask = ActionStateBitMask & (~EUSPlayerActionState::Move);
 
-	if(ImpactTimer > 0)
+	if (ImpactTimer > 0)
 		ImpactTimer -= DeltaTime;
-		
-	if(BlownTimer > 0 && !GetCharacterMovement()->IsFalling())
-		BlownTimer -= DeltaTime;
 
-	if(IsImpacted() && ImpactTimer <= 0)
+	if (InvincibleTimer > 0)
+		InvincibleTimer -= DeltaTime;
+
+	if(BlownRecoveryTimer > 0 && !GetCharacterMovement()->IsFalling())
+		BlownRecoveryTimer -= DeltaTime;
+
+	if (IsImpacted() && ImpactTimer <= 0)
 	{
 		RecoveryFromImpacted();
 	}
-	if(IsBlown() && BlownTimer <= 0)
+
+	if (IsBlown() && BlownRecoveryTimer <= 0)
 	{
 		RecoveryFromBlown();
 	}
+
+	if(IsInvincible() && InvincibleTimer <= 0)
+	{
+		RecoveryFromInvincible();
+	}
+	
+	bIsGroundedThisFrame = bIsFallingPrevFrame && !GetCharacterMovement()->IsFalling();
+	bIsFallingPrevFrame = GetCharacterMovement()->IsFalling();
+
+	if(GetIsGroundedThisFrame() && IsBlown())
+	{
+		EnterInvincible(DefaultBlownRecoveryTime);
+	}
+
+
+	
+}
+
+void AUSFightingCharacter::GlobalVisualUpdateOfMesh(float DeltaTime)
+{
+	if (IsInvincible())
+	{
+		constexpr float Frequency = 5;
+		constexpr float BrightnessMIN = 0.3;
+		constexpr float BrightnessMAX = 2;
+		const float TimeRatio
+			= (InvincibleTime - InvincibleTimer) / InvincibleTime;
+		const float Brightness =
+			BrightnessMIN +
+			BrightnessMAX / 2 -
+			BrightnessMAX / 2 * UKismetMathLibrary::Cos(TimeRatio * 2 * UE_DOUBLE_PI * Frequency);
+
+		BlinkingMaterial->SetScalarParameterValue(USMaterialParamNames::Brightness, Brightness);
+		IdentityMaterial->SetScalarParameterValue(USMaterialParamNames::Brightness, Brightness);
+	}
+	else
+	{
+		constexpr float DefaultBrightness = 1;
+		BlinkingMaterial->SetScalarParameterValue(USMaterialParamNames::Brightness, DefaultBrightness);
+		IdentityMaterial->SetScalarParameterValue(USMaterialParamNames::Brightness, DefaultBrightness);
+	}
+}
+
+void AUSFightingCharacter::OnRep_JumpIntensity()
+{
+	ApplyJumpIntensity();
 }
 
 
@@ -540,8 +740,8 @@ void AUSFightingCharacter::OrderTo(FUSOrder InOrder)
 	else
 	{
 		BufferedOrder = InOrder;
+		if(IsDied()) BufferedOrder.Init();
 	}
-
 }
 
 
@@ -550,58 +750,180 @@ void AUSFightingCharacter::SendOrderToServer_Internal_Reliable_Implementation(FU
 	ServerBufferedOrder = InOrder;
 }
 
-
 void AUSFightingCharacter::StartCastProcessOnServer()
 {
 	ActionStateBitMask = ActionStateBitMask | EUSPlayerActionState::Cast;
 }
 
-void AUSFightingCharacter::ExecuteAttackOnServer(const FVector2D& Dir)
+void AUSFightingCharacter::ExecuteAttackOnServer(const FVector2D& InDir)
 {
 	StartCastProcessOnServer();
 
-	FVector Dir3D = FVector(Dir, 0);
-	if (!Dir3D.IsNearlyZero())
-		SetActorRotation(Dir3D.Rotation());
-	
 	if (CharAnim->IsAttackMotionPlaying() && CurComboIdx < CurEquippedWeapon->GetComboMaxNum() - 1)
 		CurComboIdx++;
 	else
 		CurComboIdx = 0;
 
-	checkf(CurComboIdx < CurEquippedWeapon->GetComboMaxNum(),
-		   TEXT("Cur combo idx must be lower than MaxCombo"));
-	
-	CurEquippedWeapon->StartAttack(
-	CurEquippedWeapon->GetWeaponDmg(CurComboIdx),
-	CurEquippedWeapon->GetWeaponImpact(CurComboIdx));
+	FVector2D ActualAtkDir = InDir.IsNearlyZero() ? FVector2D(GetActorRotation().Vector()).GetSafeNormal() : InDir;
+	FVector ActualAtkDir3D = FVector(ActualAtkDir, 0);
 
-	AnimateAttack(CurComboIdx);
-}
-
-void AUSFightingCharacter::ExecuteSkillOnServer(uint8 skillIdx, const FVector2D& Dir)
-{
-#if defined(UE_BUILD_DEBUG) || defined(UE_BUILD_DEVELOPMENT)
-	if (CurEquippedWeapon->GetSkill(skillIdx) == nullptr)
+	if (AUSFightingCharacter* Target =
+		DetectClosestTargetRadiusDegreeBase(ActualAtkDir, CurEquippedWeapon->GetAutoDetectRadius(),
+		                                    CurEquippedWeapon->GetAutoDetectDegree()))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Skill is not allocated"));
-		return;
+		FVector TargetDir = Target->GetActorLocation() - GetActorLocation();
+		TargetDir.Z = 0;
+		TargetDir.Normalize();
+		AnimateAttack(CurComboIdx, TargetDir);
+	}
+	else
+	{
+		AnimateAttack(CurComboIdx, ActualAtkDir3D);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("ExecuteSkill"));
+	CurEquippedWeapon->StartAttack(
+		CurEquippedWeapon->GetWeaponDmg(CurComboIdx),
+		CurEquippedWeapon->GetWeaponImpact(CurComboIdx));
 
-#endif
+}
+
+void AUSFightingCharacter::ExecuteSkillOnServer(uint8 skillIdx, const FVector2D& InDir)
+{
+
 	StartCastProcessOnServer();
 
 	CurCastingSkill = CurEquippedWeapon->GetSkill(skillIdx);
 	CurCastingSkill->StartCast();
 
-	FVector Dir3D = FVector(Dir, 0);
-	if (!Dir.IsNearlyZero())
-		SetActorRotation(Dir3D.Rotation());
-	AnimateSkillCasting(skillIdx);
+
+	FVector2D ActualAtkDir = InDir.IsNearlyZero() ? FVector2D(GetActorRotation().Vector()).GetSafeNormal() : InDir;
+	FVector ActualAtkDir3D = FVector(ActualAtkDir, 0);
+
+
+	AUSFightingCharacter* Target = nullptr;
+
+	switch (CurCastingSkill->GetAutoDetectionType())
+	{
+	case EAutoDetectionType::None:
+		Target = nullptr;
+		break;
+	case EAutoDetectionType::Radius:
+		Target = DetectClosestTargetRadiusBase
+			(CurCastingSkill->GetDetectionRadius());
+		break;
+	case EAutoDetectionType::RadiusDegree:
+		Target = DetectClosestTargetRadiusDegreeBase
+			(ActualAtkDir, CurCastingSkill->GetDetectionRadius(), CurCastingSkill->GetDetectinoDegree());
+		break;
+	}
+
+	if (Target)
+	{
+		FVector Dir = (Target->GetActorLocation() - GetActorLocation());
+		Dir.Z = 0;
+		
+		AnimateSkillCasting(skillIdx, Dir);
+
+	}
+	else
+	{
+		AnimateSkillCasting(skillIdx, ActualAtkDir3D);
+	}
+
+
 }
 
+
+AUSFightingCharacter* AUSFightingCharacter::DetectClosestTargetRadiusBase(float Radius) const
+{
+	TArray<FOverlapResult> Out;
+	GetWorld()->OverlapMultiByProfile(
+		Out, GetActorLocation(), FQuat::Identity, CollisionName::Attack
+		, FCollisionShape::MakeSphere(Radius));
+
+
+	AUSFightingCharacter* CharToReturn = nullptr;
+	float MinDistance = TNumericLimits<float>::Max();
+
+	for (FOverlapResult item : Out)
+	{
+		AActor* ItemActor = item.GetActor();
+		if (ItemActor == this) continue;
+		const float NewDistance = FVector::Distance(ItemActor->GetActorLocation(), GetActorLocation());
+
+		if (MinDistance > NewDistance)
+		{
+			CharToReturn = Cast<AUSFightingCharacter>(ItemActor);
+			MinDistance = NewDistance;
+		}
+	}
+
+#ifdef ENABLE_DRAW_DEBUG
+
+	DrawDebugSphere(
+		GetWorld(),
+		GetActorLocation(),
+		Radius,
+		10,
+		FColor::Green,
+		false,
+		1
+	);
+
+#endif
+
+	return CharToReturn;
+}
+
+AUSFightingCharacter* AUSFightingCharacter::DetectClosestTargetRadiusDegreeBase(
+	FVector2D NormalizedAtkDir, float Radius, float ThresholdDegree) const
+{
+	TArray<FOverlapResult> Out;
+	GetWorld()->OverlapMultiByProfile(
+		Out, GetActorLocation(), FQuat::Identity, CollisionName::Attack
+		, FCollisionShape::MakeSphere(Radius));
+
+
+	AUSFightingCharacter* CharToReturn = nullptr;
+	float MinDistance = TNumericLimits<float>::Max();
+
+	for (FOverlapResult item : Out)
+	{
+		AActor* ItemActor = item.GetActor();
+		if (ItemActor == this) continue;
+		const float NewDistance = FVector::Distance(ItemActor->GetActorLocation(), GetActorLocation());
+
+		FVector2D DirToItem = FVector2D((ItemActor->GetActorLocation() - GetActorLocation()));
+		DirToItem.Normalize();
+
+		const bool bInRange = UKismetMathLibrary::Cos(UKismetMathLibrary::DegreesToRadians(ThresholdDegree)) <
+			FVector2D::DotProduct(NormalizedAtkDir, DirToItem);
+
+		UE_LOG(LogTemp, Log, TEXT("CharName: %s, bInRange: %d"), *ItemActor->GetName(), bInRange);
+
+		if (bInRange && MinDistance > NewDistance)
+		{
+			CharToReturn = Cast<AUSFightingCharacter>(ItemActor);
+			MinDistance = NewDistance;
+		}
+	}
+
+#ifdef ENABLE_DRAW_DEBUG
+
+	DrawDebugSphere(
+		GetWorld(),
+		GetActorLocation(),
+		Radius,
+		10,
+		FColor::Green,
+		false,
+		1
+	);
+
+#endif
+
+	return CharToReturn;
+}
 
 void AUSFightingCharacter::FinishCasting()
 {
@@ -616,7 +938,7 @@ void AUSFightingCharacter::TriggerSkillEffect()
 	if (HasAuthority())
 	{
 		checkf(CurCastingSkill.IsValid(), TEXT("To trigger skill, Cur Casting Skill must be valid"));
-		
+
 		CurCastingSkill->TriggerEffect();
 	}
 }
@@ -642,9 +964,10 @@ void AUSFightingCharacter::EndCastProcessOnServer(bool bIsInterrupt)
 	}
 }
 
-void AUSFightingCharacter::AnimateAttack_Implementation(const uint8 InCurComboNum)
+void AUSFightingCharacter::AnimateAttack_Implementation(const uint8 InCurComboNum, FVector_NetQuantizeNormal CastDir)
 {
 	if (!IsValid(GetCurEquippedWeapon())) return;
+	SetActorRotation(CastDir.Rotation());
 	CharAnim->AnimateAttack(InCurComboNum);
 }
 
@@ -660,9 +983,10 @@ void AUSFightingCharacter::StopAnimateAnyMotion_Implementation()
 	CharAnim->StopPlayingAnyMotion();
 }
 
-void AUSFightingCharacter::AnimateSkillCasting_Implementation(uint8 skillIdx)
+void AUSFightingCharacter::AnimateSkillCasting_Implementation(uint8 skillIdx, FVector_NetQuantizeNormal CastDir)
 {
 	if (!IsValid(GetCurEquippedWeapon())) return;
+	SetActorRotation(CastDir.Rotation());
 	CharAnim->AnimateSkillCast(skillIdx);
 }
 
@@ -672,8 +996,18 @@ void AUSFightingCharacter::AnimateImpacted_Implementation(uint8 AnimateIdx)
 	CharAnim->AnimateImpacted(AnimateIdx);
 }
 
-void AUSFightingCharacter::AnimateBlown_Implementation()
+void AUSFightingCharacter::AnimateBlown_Implementation(FVector_NetQuantizeNormal CastDir)
 {
 	if (!IsValid(GetCurEquippedWeapon())) return;
-		CharAnim->AnimateBlown();
+	
+	if(!FVector2D(CastDir).IsNearlyZero())
+		SetActorRotation(CastDir.Rotation());
+	CharAnim->AnimateBlown();
+}
+
+void AUSFightingCharacter::CastDoubleJumpEffect_Implementation()
+{
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, DoubleJumpEffectNiagara,
+	                                               GetActorLocation(), FRotator::ZeroRotator,
+	                                               FVector(1, 1, 1), true, true, ENCPoolMethod::AutoRelease);
 }

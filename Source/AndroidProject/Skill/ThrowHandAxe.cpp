@@ -67,7 +67,7 @@ void UThrowHandAxe::TriggerEffect()
 	ProjectilePool->ActivateProjectile(
 		OwnerUSFighter->GetActorLocation() + OwnerUSFighter->GetActorRotation().Vector() * ProjectileForwardCoeff,
 		OwnerUSFighter->GetActorRotation().Vector(),
-		ProjectileDmg, ProjSpeed);
+		ProjectileDmg, ProjectileImpact, ProjSpeed);
 	
 }
 

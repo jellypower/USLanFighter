@@ -39,6 +39,9 @@ protected:
 	float ImpactBlockableDegree = 45;
 
 	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
+	float InflicatingImpactAmountOnBlocked = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category=SkillSetting)
 	UParticleSystem* ParticleOnBlocked;
 	
 private:
