@@ -1,7 +1,7 @@
 # USLanFighter
 
 <p align="center">
-<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/USLANFighterPlayVideoBanner.png" alt="drawing" width="800"/>
+<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/USLANFighterPlayVideoBanner.png" alt="drawing" width="600"/>
 </p>
 
 > Smilegate주최 부트캠프 UNSEEN 교육과정을 통해 제작한 1인 프로젝트
@@ -412,7 +412,7 @@ if (BufferedOrder.IsMovementOrder() && IsOrderExecutableState()) // Process buff
 - 플레이어가 공격한 방향 기준으로 일정 각도 내에 적이 있다면 해당 타겟을 공격하도록 자동 에임 보정
 
 <p align="center">
-<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/AutoTargeting.gif" width="600"/>
+<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/AutoTargeting.gif" width="400"/>
 </p>
 
   
@@ -423,7 +423,7 @@ if (BufferedOrder.IsMovementOrder() && IsOrderExecutableState()) // Process buff
 - 플레이어 사망시에 다른 플레이어를 관전할 수 있는 관전 시스템
 
 <p align="center">
-<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/Spectating.gif" width="600"/>
+<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/Spectating.gif" width="400"/>
 </p>
 
 
@@ -436,7 +436,7 @@ if (BufferedOrder.IsMovementOrder() && IsOrderExecutableState()) // Process buff
 - Git의 Submodule을 활용하여 분리된 프로젝트의 버전관리를 진행
 
 <p align="center">
-<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/MatchingServer.png" width="800"/>
+<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/MatchingServer.png" width="1000"/>
 </p>
 
 - 프로젝트 링크: https://github.com/jellypower/USLanMatcher
