@@ -27,7 +27,7 @@
 
 # [기술적 주안점]
 
-## 언리얼 엔진 아키텍처
+## 1. 언리얼 엔진 아키텍처
 
 
 - 베이스 클래스 인터페이스를 공유하는 다양한 블루프린트 클래스 무기와, 스킬들
@@ -40,6 +40,7 @@
     - Base Class: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Weapons/USWeaponBase.h
     - Weapon Class Folder: https://github.com/jellypower/USLanFighter/tree/master/Source/AndroidProject
 
+  
 ---
 - 스킬을 컴포넌트로 제작하고 베이스 클래스를 상속받도록 하여 인터페이스만 공통되면 스크립트가 아닌 에디터를 통해 손쉽게 스킬을 장착, 해제 가능케 함
 - 스킬캐스팅 과정을 캐스팅 시작, 캐스팅 완료, 캐스팅 방해의 형태로 인터페이스화하여 스킬 제작 효율성과 코드 재사용성을 높임
@@ -54,7 +55,7 @@
     - Skill Base Class: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Skill/SkillComponentBase.h
     - Skill Class Folder: https://github.com/jellypower/USLanFighter/tree/master/Source/AndroidProject/Skill
 
-## UI아키텍쳐
+## 2. UI아키텍쳐
 
 
 - 인게임 전투 레이어와 UI/입력 레이어를 명확히 구분해 전투 레이어가 UI/입력부분에 어떠한 영향도 끼치지 않도록 하여 소스코드간 종속성을 없앰
@@ -64,6 +65,7 @@
 <img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/UIGameLayer.png" alt="drawing" width="600"/>
 </p>
 
+  
 ---
 - 입력부를 PlayerController에 종속시키고 입력을 명령의 형태로 변환하여 플레이어에게 전달함.
 - 이를 통해 플레이어의 입력을 관리하는 기능과 캐릭터의 움직임관리하는 기능을 분리하여 확장성을 높임
@@ -142,6 +144,7 @@ void AAndroidProjectPlayerController::OnInputAttack(const FInputActionValue& val
 ```
 소스코드 링크: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Characters/AndroidProjectPlayerController.cpp 
 
+  
 ---
 - UI가 인게임으로부터 제공받아야 하는 데이터, 기능들은 C++클래스에 종속시킨 이후 리플렉션 시스템을 통해 블루프린트 클래스에 제공
 - UI가 실제 화면에서 보여지고 플레이어와 상호작용 하는 기능들은 블루프린트 클래스를 통해 구현하여 디자인변경과 그래픽변경에서 발생 할 수 있는 사이드이펙트를 감소시킴
@@ -153,6 +156,7 @@ void AAndroidProjectPlayerController::OnInputAttack(const FInputActionValue& val
     - Cpp 기반:  https://github.com/jellypower/USLanFighter/tree/master/Source/AndroidProject/UI
     - Blueprint 기반: https://github.com/jellypower/USLanFighter/tree/master/Content/UI/InGameFightingUI
 
+  
 ---
 
 - 모바일 환경에서 캐릭터 조작용 위젯에 입력을 바인딩하는 인터페이스를 언리얼 내장 InputComponent에 입력을 바인딩 하는 인터페이스와 유사하게 만들어 입력을 규격화하여 코드의 가독성을 높임
@@ -197,7 +201,7 @@ public:
 
 - 소스코드 링크: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/UI/USTouchInterfaceButton.h
 
-## 공통 상수/클래스
+## 3. 공통 상수/클래스
 
 - 공통으로 사용되는 상수, 계속해서 사용되는String기반 상수등을 별도의 헤더파일, 네임스페이스에 `const static`으로 묶어 재사용성을 높이고 상수, String사용시의 실수를 방지
 
@@ -233,7 +237,7 @@ namespace USTagNames
 
 - 소스코드 링크: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/CharacterShare/EditorNames.h
 
-## 런타임 최적화
+## 4. 런타임 최적화
 
 
 - 계속해서 사용되는 투사체의 경우 오브젝트 풀링을 활용하여 런타임 객체 할당/해제에 대한 부하를 완화
@@ -276,6 +280,7 @@ private:
     - Projectile Base: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/BattleSystemBase/ProjectileBase.cpp
     - Throw Hand Axe: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Skill/ThrowHandAxe.h
 
+  
 ---
 
 - 한 번 캐스팅된 객체들은 멤버변수로 캐싱하여 활용하여 동적 캐스팅 부담을 줄임
@@ -316,7 +321,7 @@ void USkillComponentBase::SetOwnerUSFighter(AUSFightingCharacter* InCharacter)
     - Weapon Base: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Weapons/USWeaponBase.h
     - Skill Base: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Skill/SkillComponentBase.h
 
-## 네트워크 최적화
+## 5. 네트워크 최적화
 
 
 - 플레이어의 상태를 비트마스크로 관리하여 플레이어 상태 리플리케이션 데이터 양을 줄임
@@ -353,6 +358,7 @@ namespace EUSPlayerActionState
     - 비트마스크(USFightingCharacter.h): https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Characters/USFightingCharacter.h
     - 비트마스크 Enum(EUSPlayerActionState.h): https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/CharacterShare/EUSPlayerActionState.h
 
+  
 ---
 
 - 선입력 시스템을 활용하여 플레이어의 매 입력마다 RPC를 전송하는 것이 아닌 실제 플레이어가 해당 동작이 가능한 상황에서 최종 입력만 서버에 전송하여 RPC콜을 최소화
@@ -379,7 +385,7 @@ if (BufferedOrder.IsMovementOrder() && IsOrderExecutableState()) // Process buff
     - 플레이어 캐릭터 cpp: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Characters/USFightingCharacter.cpp
     - 플레이어 캐릭터 header: https://github.com/jellypower/USLanFighter/blob/master/Source/AndroidProject/Characters/USFightingCharacter.h
 
-## 편의기능
+## 6. 편의기능
 
 
 - 주위의 적을 자동으로 타겟 하는 오토 타게팅 시스템을 통한 조작감 개선
@@ -389,6 +395,7 @@ if (BufferedOrder.IsMovementOrder() && IsOrderExecutableState()) // Process buff
 <img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/AutoTargeting.gif" width="600"/>
 </p>
 
+  
 ---
 
 - 플레이어 사망시에 다른 플레이어를 관전할 수 있는 관전 시스템
@@ -398,7 +405,7 @@ if (BufferedOrder.IsMovementOrder() && IsOrderExecutableState()) // Process buff
 </p>
 
 
-## 자체제작 매칭서버
+## 7. 자체제작 매칭서버
 
 
 - 경량화, 간소화하여 사용법이 간단한 매칭서버 제작
