@@ -436,7 +436,7 @@ if (BufferedOrder.IsMovementOrder() && IsOrderExecutableState()) // Process buff
 - Git의 Submodule을 활용하여 분리된 프로젝트의 버전관리를 진행
 
 <p align="center">
-<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/MatchingServer.png" width="600"/>
+<img src="https://github.com/jellypower/PublicImageDataBase/blob/main/Portfolio/USLanFighter/MatchingServer.png" width="800"/>
 </p>
 
 - 프로젝트 링크: https://github.com/jellypower/USLanMatcher
